@@ -216,6 +216,75 @@
   flex-shrink: 0;
 }
 
+/* Queue progress bar */
+.queue-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 1rem;
+  padding: 8px 16px;
+  background: #181818;
+  border-radius: 8px;
+}
+
+.queue-progress-bar {
+  flex: 1;
+  height: 4px;
+  background: #333;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.queue-progress-fill {
+  height: 100%;
+  background: #1DB954;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.queue-progress-text {
+  font-size: 0.8rem;
+  color: #b3b3b3;
+  white-space: nowrap;
+}
+
+/* Queue status in now-playing bar */
+.queue-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.queue-remaining {
+  font-size: 0.75rem;
+  color: #b3b3b3;
+  white-space: nowrap;
+}
+
+.refill-btn {
+  background: #282828;
+  color: #1DB954;
+  border: 1px solid #1DB954;
+  padding: 4px 12px;
+  border-radius: 50px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background-color 0.2s;
+}
+
+.refill-btn:hover {
+  background: #1DB954;
+  color: #fff;
+}
+
+.refill-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .stats-summary {
   display: flex;
   gap: 1rem;

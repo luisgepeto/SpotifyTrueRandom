@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isAuthenticated } from '../lib/auth.js';
 import { getPlaylists } from '../lib/spotify.js';
-import { isPlaybackActive, getCurrentPlaylistId } from '../lib/playback.js';
+import { isSessionActive, getActivePlaylistId } from '../lib/playback.js';
 import PlaylistCard from '../components/PlaylistCard.jsx';
 import './PlaylistsPage.css';
 
@@ -12,7 +12,7 @@ export default function PlaylistsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const activePlaylistId = isPlaybackActive() ? getCurrentPlaylistId() : null;
+  const activePlaylistId = isSessionActive() ? getActivePlaylistId() : null;
 
   useEffect(() => {
     if (!isAuthenticated()) {

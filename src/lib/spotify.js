@@ -122,3 +122,18 @@ export async function transferPlayback(deviceId) {
     body: JSON.stringify({ device_ids: [deviceId] }),
   });
 }
+
+export async function addToQueue(trackUri, deviceId) {
+  const endpoint = deviceId
+    ? `/me/player/queue?uri=${encodeURIComponent(trackUri)}&device_id=${deviceId}`
+    : `/me/player/queue?uri=${encodeURIComponent(trackUri)}`;
+  return spotifyFetch(endpoint, { method: 'POST' });
+}
+
+export async function getQueue() {
+  return spotifyFetch('/me/player/queue');
+}
+
+export async function getRecentlyPlayed(limit = 50) {
+  return spotifyFetch(`/me/player/recently-played?limit=${limit}`);
+}
