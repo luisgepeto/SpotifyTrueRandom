@@ -10,6 +10,8 @@ let currentTrackUri = null;
 let onTrackChangeCallback = null;
 let isActive = false;
 let trackHistory = [];
+let wasPlaying = false;
+let playingNextLock = false;
 
 export function startTrueRandomPlayback(playlistId, tracks, deviceId, onTrackChange) {
   stopPlayback();
@@ -19,49 +21,57 @@ export function startTrueRandomPlayback(playlistId, tracks, deviceId, onTrackCha
   onTrackChangeCallback = onTrackChange;
   isActive = true;
   trackHistory = [];
+  wasPlaying = false;
+  playingNextLock = false;
 
   playNextTrack(deviceId);
 }
 
 async function playNextTrack(deviceId) {
   if (!isActive || !currentTracks || currentTracks.length === 0) return;
+  if (playingNextLock) return;
+  playingNextLock = true;
 
   const nextTrack = selectNextTrack(currentPlaylistId, currentTracks);
-  if (!nextTrack) return;
+  if (!nextTrack) {
+    playingNextLock = false;
+    return;
+  }
 
   currentTrackUri = nextTrack.uri;
   trackHistory.push(nextTrack);
 
   try {
     await playTrack(nextTrack.uri, deviceId);
+    wasPlaying = true;
     if (onTrackChangeCallback) {
       onTrackChangeCallback(nextTrack);
     }
     startPolling(deviceId);
   } catch (error) {
     console.error('[TrueRandom] Error playing track:', error);
+  } finally {
+    playingNextLock = false;
   }
 }
 
 export function previousTrack(deviceId) {
   if (!isActive || trackHistory.length < 2) return;
 
-  // Current song is last in history; go back to the one before it
   const prevTrack = trackHistory[trackHistory.length - 2];
 
-  // Increment play count for the previous track (replaying counts as a new play)
   const stats = getPlaylistStats(currentPlaylistId);
   if (stats.tracks[prevTrack.id]) {
     stats.tracks[prevTrack.id].playCount += 1;
     savePlaylistStats(currentPlaylistId, stats);
   }
 
-  // Push it again so "previous" can keep going back
   trackHistory.push(prevTrack);
   currentTrackUri = prevTrack.uri;
 
   playTrack(prevTrack.uri, deviceId)
     .then(() => {
+      wasPlaying = true;
       if (onTrackChangeCallback) onTrackChangeCallback(prevTrack);
       startPolling(deviceId);
     })
@@ -80,25 +90,37 @@ function startPolling(deviceId) {
     try {
       const playback = await getCurrentPlayback();
 
-      if (!playback || !playback.item) return;
+      // No playback state at all — if we were playing, the song ended
+      if (!playback || !playback.item) {
+        if (wasPlaying) {
+          console.log('[TrueRandom] Playback ended (no state), playing next');
+          wasPlaying = false;
+          playNextTrack(deviceId);
+        }
+        return;
+      }
 
-      // Detect track change or end
       const currentUri = playback.item.uri;
-      const progressMs = playback.progress_ms;
-      const durationMs = playback.item.duration_ms;
+      const isPlaying = playback.is_playing;
 
-      // Song ended: Spotify stopped playing and we're near the end of our track
-      if (!playback.is_playing && currentUri === currentTrackUri && durationMs - progressMs < 5000) {
+      // Song ended: was playing, now stopped, same track
+      if (!isPlaying && wasPlaying && currentUri === currentTrackUri) {
+        console.log('[TrueRandom] Song finished, playing next');
+        wasPlaying = false;
         playNextTrack(deviceId);
         return;
       }
 
-      // Spotify moved to a different track (e.g. user skipped via Spotify app)
+      // Spotify moved to a different track (user skipped via Spotify app)
       if (currentUri !== currentTrackUri) {
+        console.log('[TrueRandom] Track changed externally, playing next');
         playNextTrack(deviceId);
+        return;
       }
+
+      // Update playing state
+      wasPlaying = isPlaying;
     } catch {
-      // Handle polling errors gracefully - if auth expired, stop playback
       if (!getValidToken()) {
         stopPlayback();
       }
@@ -121,6 +143,8 @@ export function stopPlayback() {
   currentTrackUri = null;
   onTrackChangeCallback = null;
   trackHistory = [];
+  wasPlaying = false;
+  playingNextLock = false;
 }
 
 export function skipTrack(deviceId) {
