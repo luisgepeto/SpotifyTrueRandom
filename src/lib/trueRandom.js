@@ -101,14 +101,7 @@ export function selectNextTrack(tracks) {
 export function getTrackStats(tracks) {
   const stats = getGlobalStats();
 
-  const seenIds = new Set();
-  const uniqueTracks = tracks.filter((track) => {
-    if (seenIds.has(track.id)) return false;
-    seenIds.add(track.id);
-    return true;
-  });
-
-  const trackStats = uniqueTracks.map((track) => {
+  const trackStats = tracks.map((track) => {
     const data = stats.tracks[track.id];
     return {
       ...track,

@@ -66,8 +66,9 @@ export async function getAllPlaylistTracks(playlistId) {
     const data = await getPlaylistTracks(playlistId, limit, offset);
     const validTracks = data.items
       .filter((item) => item.track && item.track.id)
-      .map((item) => ({
+      .map((item, index) => ({
         id: item.track.id,
+        playlistPosition: offset + index,
         name: item.track.name,
         artist: item.track.artists.map((a) => a.name).join(', '),
         album: item.track.album.name,
@@ -82,13 +83,7 @@ export async function getAllPlaylistTracks(playlistId) {
     offset += limit;
   }
 
-  // Deduplicate by track ID (playlists can have the same song added multiple times)
-  const seen = new Set();
-  return tracks.filter((t) => {
-    if (seen.has(t.id)) return false;
-    seen.add(t.id);
-    return true;
-  });
+  return tracks;
 }
 
 export async function getDevices() {
