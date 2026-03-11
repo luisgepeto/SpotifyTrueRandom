@@ -1,0 +1,52 @@
+:root {
+  color-scheme: dark;
+  --bg-primary: #121212;
+  --bg-secondary: #181818;
+  --text-primary: #fff;
+  --text-secondary: #b3b3b3;
+  --accent: #1DB954;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+#root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.main-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+}

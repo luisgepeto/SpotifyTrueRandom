@@ -1,0 +1,40 @@
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1.5rem;
+  background: #181818;
+  border-bottom: 1px solid #282828;
+}
+
+.nav-brand {
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.nav-username {
+  font-size: 0.9rem;
+  color: #b3b3b3;
+}
+
+.nav-logout {
+  background: none;
+  border: 1px solid #444;
+  color: #b3b3b3;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.nav-logout:hover {
+  color: #fff;
+  border-color: #fff;
+}

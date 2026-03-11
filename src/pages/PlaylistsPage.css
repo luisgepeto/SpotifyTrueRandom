@@ -1,0 +1,40 @@
+.playlists-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.playlists-sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg-primary);
+  padding-bottom: 1rem;
+}
+
+.playlists-page h2 {
+  margin-bottom: 0.5rem;
+}
+
+.page-summary {
+  color: #b3b3b3;
+  font-size: 0.95rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+.playlists-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.loading, .error, .empty {
+  text-align: center;
+  padding: 2rem;
+  color: #b3b3b3;
+}
+
+.error {
+  color: #ff4444;
+}

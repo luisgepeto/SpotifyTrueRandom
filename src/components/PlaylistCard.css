@@ -1,0 +1,69 @@
+.playlist-card {
+  background: #181818;
+  border-radius: 8px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  position: relative;
+}
+
+.playlist-card:hover {
+  background: #282828;
+}
+
+.playlist-card.active {
+  outline: 2px solid #1DB954;
+  outline-offset: -2px;
+}
+
+.card-image {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+  position: relative;
+}
+
+.card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.card-placeholder {
+  width: 100%;
+  height: 100%;
+  background: #282828;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 3rem;
+}
+
+.card-active-badge {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  background: #1DB954;
+  color: #000;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.card-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-meta {
+  font-size: 0.8rem;
+  color: #b3b3b3;
+  margin: 0;
+}

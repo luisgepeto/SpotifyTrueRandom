@@ -1,0 +1,57 @@
+.track-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 140px;
+  padding: 10px 16px;
+  border-top: 1px solid #282828;
+  font-size: 0.9rem;
+  transition: background-color 0.15s;
+}
+
+.track-row:hover {
+  background: #1a1a1a;
+}
+
+.track-row.excluded {
+  opacity: 0.5;
+}
+
+.track-row .col-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-row .col-artist {
+  color: #b3b3b3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-row .col-count {
+  text-align: right;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.count-value {
+  font-weight: 600;
+}
+
+.count-diff {
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.count-diff.above {
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.count-diff.below {
+  color: #1DB954;
+  background: rgba(29, 185, 84, 0.1);
+}
