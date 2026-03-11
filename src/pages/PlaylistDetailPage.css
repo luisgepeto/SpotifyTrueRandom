@@ -323,3 +323,84 @@
   min-height: 0;
   margin-bottom: 1rem;
 }
+
+/* ── Mobile responsive styles ── */
+@media (max-width: 600px) {
+  .playlist-detail {
+    padding: 0 0.75rem;
+  }
+
+  .detail-sticky {
+    padding-top: 0.75rem;
+  }
+
+  /* Wrap the play button below the playlist info on narrow screens */
+  .detail-header {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .detail-actions {
+    width: 100%;
+  }
+
+  .play-btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Smaller playlist cover */
+  .playlist-cover {
+    width: 56px;
+    height: 56px;
+  }
+
+  .playlist-name {
+    font-size: 1.1rem;
+  }
+
+  /* Compact now-playing widget */
+  .now-playing {
+    padding: 8px 12px;
+    min-height: 0;
+    margin-bottom: 0.5rem;
+    gap: 10px;
+  }
+
+  /* Hide the "Volume & seek via Spotify app" hint on mobile */
+  .now-playing-hint {
+    display: none;
+  }
+
+  /* Compact stats row */
+  .stats-summary {
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-item {
+    flex: 1;
+    padding: 0.5rem;
+    min-width: 0;
+  }
+
+  .stat-value {
+    font-size: 1rem;
+  }
+
+  /* Compact settings row */
+  .settings-row {
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .tracks-header {
+    padding: 8px 12px;
+    grid-template-columns: 1fr 100px;
+  }
+
+  /* Hide artist column header on small screens */
+  .tracks-header .col-artist {
+    display: none;
+  }
+}
