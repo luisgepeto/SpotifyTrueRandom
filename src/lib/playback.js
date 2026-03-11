@@ -1,7 +1,9 @@
 import { getCurrentPlayback, playTrack } from './spotify.js';
 import { selectNextTrack } from './trueRandom.js';
-import { getPlaylistStats, savePlaylistStats } from './storage.js';
+import { getPlaylistStats, savePlaylistStats, getPlaybackHistory, savePlaybackHistory } from './storage.js';
 import { getValidToken } from './auth.js';
+
+const MAX_HISTORY_SIZE = 200;
 
 let pollingInterval = null;
 let currentPlaylistId = null;
@@ -20,7 +22,7 @@ export function startTrueRandomPlayback(playlistId, tracks, deviceId, onTrackCha
   currentTracks = tracks;
   onTrackChangeCallback = onTrackChange;
   isActive = true;
-  trackHistory = [];
+  trackHistory = getPlaybackHistory(playlistId);
   wasPlaying = false;
   playingNextLock = false;
 
@@ -40,6 +42,10 @@ async function playNextTrack(deviceId) {
 
   currentTrackUri = nextTrack.uri;
   trackHistory.push(nextTrack);
+  if (trackHistory.length > MAX_HISTORY_SIZE) {
+    trackHistory = trackHistory.slice(-MAX_HISTORY_SIZE);
+  }
+  savePlaybackHistory(currentPlaylistId, trackHistory);
 
   try {
     await playTrack(nextTrack.uri, deviceId);
@@ -67,6 +73,10 @@ export function previousTrack(deviceId) {
   }
 
   trackHistory.push(prevTrack);
+  if (trackHistory.length > MAX_HISTORY_SIZE) {
+    trackHistory = trackHistory.slice(-MAX_HISTORY_SIZE);
+  }
+  savePlaybackHistory(currentPlaylistId, trackHistory);
   currentTrackUri = prevTrack.uri;
 
   playTrack(prevTrack.uri, deviceId)

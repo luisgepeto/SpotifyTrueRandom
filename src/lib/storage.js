@@ -7,6 +7,10 @@ function statsKey(playlistId) {
   return `truerandom_stats_${playlistId}`;
 }
 
+function historyKey(playlistId) {
+  return `truerandom_history_${playlistId}`;
+}
+
 export function getTokens() {
   const raw = localStorage.getItem(STORAGE_KEYS.TOKENS);
   return raw ? JSON.parse(raw) : null;
@@ -31,6 +35,24 @@ export function savePlaylistStats(playlistId, stats) {
 
 export function clearPlaylistStats(playlistId) {
   localStorage.removeItem(statsKey(playlistId));
+}
+
+export function getPlaybackHistory(playlistId) {
+  const raw = localStorage.getItem(historyKey(playlistId));
+  if (!raw) return [];
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
+}
+
+export function savePlaybackHistory(playlistId, history) {
+  localStorage.setItem(historyKey(playlistId), JSON.stringify(history));
+}
+
+export function clearPlaybackHistory(playlistId) {
+  localStorage.removeItem(historyKey(playlistId));
 }
 
 export function getDebugMode() {
