@@ -1,4 +1,4 @@
-import { addToQueue, playTrack } from './spotify.js';
+import { addToQueue, playTrack, getQueue } from './spotify.js';
 import { getGlobalStats, getGlobalTolerance, getDebugMode } from './storage.js';
 
 const BATCH_SIZE = 30;
@@ -9,21 +9,46 @@ function sleep(ms) {
 }
 
 /**
- * Generate a TrueRandom-ordered batch of tracks using global stats.
+ * Read the current Spotify queue and return a map of trackId -> count of
+ * occurrences in the queue. This is the source of truth for what's pending.
+ */
+async function getQueueCounts() {
+  try {
+    const data = await getQueue();
+    const counts = {};
+    for (const item of data?.queue || []) {
+      if (item?.id) {
+        counts[item.id] = (counts[item.id] || 0) + 1;
+      }
+    }
+    return counts;
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Generate a TrueRandom-ordered batch of tracks using global stats + current Spotify queue.
+ * Reads the real queue so songs already queued (by our app or manually) count toward sim totals.
  * Does NOT modify global stats — simulation only.
  */
-export function generateBatch(tracks, batchSize = BATCH_SIZE) {
+export async function generateBatch(tracks, batchSize = BATCH_SIZE) {
   if (!tracks || tracks.length === 0) return [];
 
   const stats = getGlobalStats();
   const tolerance = getGlobalTolerance();
   const debugMode = getDebugMode();
+  const queueCounts = await getQueueCounts();
 
-  // Get counts for tracks that already exist in global stats
+  if (debugMode && Object.keys(queueCounts).length > 0) {
+    console.log(`[TrueRandom] Current queue has ${Object.values(queueCounts).reduce((a, b) => a + b, 0)} songs from ${Object.keys(queueCounts).length} unique tracks`);
+  }
+
+  // Get counts for tracks that already exist in global stats (real + queued)
   const activeCounts = [];
   for (const track of tracks) {
     if (stats.tracks[track.id] !== undefined) {
-      activeCounts.push(stats.tracks[track.id].playCount);
+      activeCounts.push(stats.tracks[track.id].playCount + (queueCounts[track.id] || 0));
     }
   }
 
@@ -31,20 +56,28 @@ export function generateBatch(tracks, batchSize = BATCH_SIZE) {
     ? activeCounts.reduce((a, b) => a + b, 0) / activeCounts.length
     : 0;
 
-  // Build simulation counts — new tracks start at average for fair weighting,
-  // but this is NOT persisted to global stats
+  // Build simulation counts — real stats + queue counts.
+  // New tracks start at average for fair weighting. NOT persisted to global stats.
   const simCounts = {};
   for (const track of tracks) {
-    simCounts[track.id] = stats.tracks[track.id]?.playCount ?? Math.round(average);
+    const realCount = stats.tracks[track.id]?.playCount ?? Math.round(average);
+    simCounts[track.id] = realCount + (queueCounts[track.id] || 0);
   }
 
+  // Never repeat a song within a single batch
+  const effectiveBatchSize = Math.min(batchSize, tracks.length);
   const batch = [];
-  for (let i = 0; i < batchSize && i < tracks.length * 2; i++) {
+  const usedIds = new Set();
+
+  for (let i = 0; i < effectiveBatchSize; i++) {
+    const available = tracks.filter((t) => !usedIds.has(t.id));
+    if (available.length === 0) break;
+
     const simAvg = Object.values(simCounts).reduce((a, b) => a + b, 0) / Object.keys(simCounts).length;
     const threshold = simAvg + tolerance;
 
     const candidates = [];
-    for (const track of tracks) {
+    for (const track of available) {
       const count = simCounts[track.id];
       const weight = Math.max(threshold - count, 0);
       if (count < threshold && weight > 0) {
@@ -54,8 +87,8 @@ export function generateBatch(tracks, batchSize = BATCH_SIZE) {
 
     let selected;
     if (candidates.length === 0) {
-      const minCount = Math.min(...tracks.map((t) => simCounts[t.id]));
-      const fallbacks = tracks.filter((t) => simCounts[t.id] === minCount);
+      const minCount = Math.min(...available.map((t) => simCounts[t.id]));
+      const fallbacks = available.filter((t) => simCounts[t.id] === minCount);
       selected = fallbacks[Math.floor(Math.random() * fallbacks.length)];
     } else {
       const totalWeight = candidates.reduce((sum, c) => sum + c.weight, 0);
@@ -71,6 +104,7 @@ export function generateBatch(tracks, batchSize = BATCH_SIZE) {
     }
 
     batch.push(selected);
+    usedIds.add(selected.id);
     simCounts[selected.id] += 1;
   }
 
@@ -85,8 +119,6 @@ export function generateBatch(tracks, batchSize = BATCH_SIZE) {
 /**
  * Start playback with a batch: plays the first song, then adds the rest to queue.
  * Used when no music is currently playing.
- * Note: Spotify has no API to clear the queue. Previously queued items will play
- * after the current song before our queued tracks.
  */
 export async function queueBatch(batch, deviceId, onProgress) {
   if (batch.length === 0) return;

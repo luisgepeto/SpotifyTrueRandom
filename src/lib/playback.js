@@ -4,12 +4,11 @@ import { saveLastQueuedPlaylist } from './storage.js';
 
 /**
  * Start TrueRandom: replaces current playback context with a new batch.
- * Clears existing queue by setting all tracks as the new context.
  */
 export async function startTrueRandom(playlistId, tracks, onProgress) {
   const deviceId = await getActiveDeviceId();
 
-  const batch = generateBatch(tracks);
+  const batch = await generateBatch(tracks);
   if (batch.length === 0) throw new Error('No tracks available to queue.');
 
   await queueBatch(batch, deviceId, onProgress);
@@ -25,7 +24,7 @@ export async function startTrueRandom(playlistId, tracks, onProgress) {
 export async function addToTrueRandomQueue(playlistId, tracks, onProgress) {
   const deviceId = await getActiveDeviceId();
 
-  const batch = generateBatch(tracks);
+  const batch = await generateBatch(tracks);
   if (batch.length === 0) throw new Error('No tracks available to queue.');
 
   await enqueueBatch(batch, deviceId, onProgress);

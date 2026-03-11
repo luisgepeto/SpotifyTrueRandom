@@ -82,7 +82,13 @@ export async function getAllPlaylistTracks(playlistId) {
     offset += limit;
   }
 
-  return tracks;
+  // Deduplicate by track ID (playlists can have the same song added multiple times)
+  const seen = new Set();
+  return tracks.filter((t) => {
+    if (seen.has(t.id)) return false;
+    seen.add(t.id);
+    return true;
+  });
 }
 
 export async function getDevices() {

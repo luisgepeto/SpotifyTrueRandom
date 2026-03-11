@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isAuthenticated } from '../lib/auth.js';
 import { getPlaylists } from '../lib/spotify.js';
-import { getLastQueuedPlaylist, getGlobalTolerance, saveGlobalTolerance } from '../lib/storage.js';
+import { getGlobalTolerance, saveGlobalTolerance } from '../lib/storage.js';
 import PlaylistCard from '../components/PlaylistCard.jsx';
 import './PlaylistsPage.css';
 
@@ -13,7 +13,6 @@ export default function PlaylistsPage() {
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [tolerance, setTolerance] = useState(getGlobalTolerance());
-  const activePlaylistId = getLastQueuedPlaylist();
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -86,7 +85,6 @@ export default function PlaylistsPage() {
           <PlaylistCard
             key={playlist.id}
             playlist={playlist}
-            isActive={playlist.id === activePlaylistId}
             onClick={() => navigate(`/playlist/${playlist.id}`)}
           />
         ))}
