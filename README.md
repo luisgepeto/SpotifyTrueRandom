@@ -1,37 +1,37 @@
 # 🎲 TrueRandom for Spotify
 
-Reproduce tus playlists de Spotify con una distribución verdaderamente uniforme. Cada canción se escucha aproximadamente el mismo número de veces a lo largo del tiempo.
+Play your Spotify playlists with a truly uniform distribution. Every song gets played roughly the same number of times over time.
 
-## ¿Qué es TrueRandom?
+## What is TrueRandom?
 
-A diferencia del modo **Shuffle** de Spotify (que aleatoriza canciones de forma independiente en cada reproducción), **TrueRandom** mantiene un conteo de reproducciones por canción y prioriza las canciones menos escuchadas usando un algoritmo de **weighted random**.
+Unlike Spotify's **Shuffle** mode (which randomizes songs independently on each playback), **TrueRandom** keeps a per-song play count and prioritizes the least-played songs using a **weighted random** algorithm.
 
-## Características
+## Features
 
-- 🔗 **Conexión con Spotify** via OAuth PKCE (sin servidor)
-- 📋 **Ver playlists** del usuario
-- 🎲 **Modo TrueRandom** — reproducciones balanceadas con weighted random
-- 📊 **Estadísticas** por canción por playlist
-- ⚙️ **Tolerancia ajustable** — controla qué tan "estricto" es el balanceo
-- 🧹 **Limpiar estadísticas** — empezar de cero
-- 🐛 **Debug mode** — logs detallados del algoritmo en la consola del navegador
-- 🔊 **Spotify Connect** — controla la reproducción en cualquier dispositivo (teléfono, bocina, etc.)
+- 🔗 **Spotify Login** via OAuth PKCE (no server required)
+- 📋 **Browse playlists** from your account
+- 🎲 **TrueRandom mode** — balanced playback with weighted random
+- 📊 **Per-song statistics** tracked per playlist
+- ⚙️ **Adjustable tolerance** — control how strict the balancing is
+- 🧹 **Clear statistics** — start fresh at any time
+- 🐛 **Debug mode** — detailed algorithm logs in the browser console
+- 🔊 **Spotify Connect** — control playback on any device (phone, speaker, etc.)
 
-## Requisitos
+## Requirements
 
-- Cuenta **Spotify Premium**
-- Una **Spotify App** registrada en [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+- A **Spotify Premium** account
+- A **Spotify App** registered at the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
 
 ## Setup
 
-### 1. Crear una Spotify App
+### 1. Create a Spotify App
 
-1. Ve a [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
-2. Crea una nueva app
-3. En **Redirect URIs**, agrega: `http://localhost:5173/#/callback` (desarrollo) y tu URL de producción
-4. Copia el **Client ID**
+1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard)
+2. Create a new app
+3. Under **Redirect URIs**, add: `https://localhost:5173/` (development) and your production URL
+4. Copy the **Client ID**
 
-### 2. Configurar el proyecto
+### 2. Configure the project
 
 ```bash
 git clone <repo-url>
@@ -39,48 +39,48 @@ cd TrueRandom
 cp .env.example .env
 ```
 
-Edita `.env` y agrega tu Client ID:
+Edit `.env` and add your Client ID:
 
 ```
-VITE_SPOTIFY_CLIENT_ID=tu_client_id_aqui
+VITE_SPOTIFY_CLIENT_ID=your_client_id_here
 ```
 
-### 3. Instalar y ejecutar
+### 3. Install and run
 
 ```bash
 npm install
 npm run dev
 ```
 
-Abre `http://localhost:5173` en tu navegador.
+Open `https://localhost:5173` in your browser.
 
-## Algoritmo TrueRandom
+## TrueRandom Algorithm
 
-1. Calcula el **promedio** de reproducciones de todas las canciones
-2. Calcula el **umbral** = promedio + tolerancia
-3. Selecciona **candidatas**: canciones con conteo < umbral
-4. Asigna **pesos**: peso = umbral - conteo (más atrasada = más probabilidad)
-5. **Weighted random** entre candidatas
-6. Reproduce y incrementa el conteo
+1. Calculate the **average** play count across all songs
+2. Calculate the **threshold** = average + tolerance
+3. Select **candidates**: songs with play count < threshold
+4. Assign **weights**: weight = threshold − play count (further behind = higher probability)
+5. **Weighted random** pick among candidates
+6. Play the song and increment its count
 
 ### Edge Cases
 
-- **Nueva canción**: Se inicializa al promedio actual (no tiene que "ponerse al día")
-- **Canción eliminada**: Se ignora, no afecta el promedio
-- **Conteos por playlist**: Una canción en múltiples playlists tiene conteos independientes
+- **New song**: Initialized at the current average (doesn't need to "catch up")
+- **Removed song**: Ignored — doesn't affect the average
+- **Per-playlist counts**: A song in multiple playlists has independent play counts
 
-## Deploy a GitHub Pages
+## Deploy to GitHub Pages
 
 ```bash
 npm run build
 ```
 
-El output está en `dist/`. Configura GitHub Pages para servir desde ese directorio o usa GitHub Actions.
+Output goes to `dist/`. Configure GitHub Pages to serve from that directory, or use GitHub Actions.
 
 ## Tech Stack
 
 - React 19 + Vite 7
 - React Router (HashRouter)
 - Spotify Web API + OAuth PKCE
-- localStorage para persistencia
-- 100% client-side (sin servidor)
+- localStorage for persistence
+- 100% client-side (no server)
