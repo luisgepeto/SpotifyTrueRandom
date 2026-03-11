@@ -1,4 +1,4 @@
-import { addToQueue, playTrack } from './spotify.js';
+import { addToQueue, playTracks } from './spotify.js';
 import { getGlobalStats, saveGlobalStats, getGlobalTolerance, getDebugMode } from './storage.js';
 
 const BATCH_SIZE = 30;
@@ -99,24 +99,15 @@ export function generateBatch(tracks, batchSize = BATCH_SIZE) {
 }
 
 /**
- * Queue a batch: play the first song, then add the rest to Spotify's queue.
- * Used when no music is currently playing.
+ * Start playback with a batch: replaces current context with all tracks at once.
+ * This effectively clears the previous queue since all tracks are set as the new context.
  */
 export async function queueBatch(batch, deviceId, onProgress) {
   if (batch.length === 0) return;
 
-  await playTrack(batch[0].uri, deviceId);
-  if (onProgress) onProgress(1, batch.length);
-
-  for (let i = 1; i < batch.length; i++) {
-    await sleep(QUEUE_DELAY_MS);
-    try {
-      await addToQueue(batch[i].uri, deviceId);
-    } catch (err) {
-      console.error(`[TrueRandom] Failed to queue track ${i + 1}/${batch.length}: ${batch[i].name}`, err);
-    }
-    if (onProgress) onProgress(i + 1, batch.length);
-  }
+  const uris = batch.map((t) => t.uri);
+  await playTracks(uris, deviceId);
+  if (onProgress) onProgress(batch.length, batch.length);
 }
 
 /**

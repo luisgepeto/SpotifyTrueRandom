@@ -94,8 +94,8 @@ export async function getCurrentPlayback() {
   return spotifyFetch('/me/player');
 }
 
-export async function playTrack(trackUri, deviceId) {
-  const body = { uris: [trackUri] };
+export async function playTracks(trackUris, deviceId) {
+  const body = { uris: trackUris };
   const endpoint = deviceId
     ? `/me/player/play?device_id=${deviceId}`
     : '/me/player/play';

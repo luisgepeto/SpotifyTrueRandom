@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { isAuthenticated } from '../lib/auth.js';
 import { getPlaylist, getAllPlaylistTracks } from '../lib/spotify.js';
 import { getTrackStats } from '../lib/trueRandom.js';
-import { getGlobalTolerance, saveGlobalTolerance, clearGlobalStats, getDebugMode, setDebugMode } from '../lib/storage.js';
+import { getGlobalTolerance, clearGlobalStats, getDebugMode, setDebugMode } from '../lib/storage.js';
 import { enqueueTrueRandom, checkIsPlaying } from '../lib/playback.js';
 import { reconcileFromRecentlyPlayed } from '../lib/reconcile.js';
 import { BATCH_SIZE } from '../lib/queueManager.js';
@@ -18,7 +18,6 @@ export default function PlaylistDetailPage() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [tolerance, setTolerance] = useState(getGlobalTolerance());
   const [debugMode, setDebugModeState] = useState(getDebugMode());
   const [sortField, setSortField] = useState('name');
   const [sortAsc, setSortAsc] = useState(true);
@@ -76,12 +75,6 @@ export default function PlaylistDetailPage() {
       setError(err.message);
       setQueueProgress(null);
     }
-  };
-
-  const handleToleranceChange = (newTolerance) => {
-    const val = Math.max(1, parseInt(newTolerance) || 10);
-    setTolerance(val);
-    saveGlobalTolerance(val);
   };
 
   const handleClearStats = () => {
@@ -186,16 +179,6 @@ export default function PlaylistDetailPage() {
         </div>
 
         <div className="settings-row">
-          <label>
-            Tolerance:
-            <input
-              type="number"
-              min="1"
-              value={tolerance}
-              onChange={(e) => handleToleranceChange(e.target.value)}
-              className="tolerance-input"
-            />
-          </label>
           <label className="debug-label">
             <input
               type="checkbox"
@@ -226,7 +209,7 @@ export default function PlaylistDetailPage() {
             key={track.id}
             track={track}
             average={stats?.average ?? 0}
-            tolerance={tolerance}
+            tolerance={getGlobalTolerance()}
           />
         ))}
       </div>
