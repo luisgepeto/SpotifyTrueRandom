@@ -107,6 +107,12 @@ export async function playTrack(trackUri, deviceId) {
   });
 }
 
+export async function addToQueue(trackUri, deviceId) {
+  const params = new URLSearchParams({ uri: trackUri });
+  if (deviceId) params.set('device_id', deviceId);
+  return spotifyFetch(`/me/player/queue?${params}`, { method: 'POST' });
+}
+
 export async function pausePlayback() {
   return spotifyFetch('/me/player/pause', { method: 'PUT' });
 }

@@ -1,4 +1,4 @@
-import { getCurrentPlayback, playTrack } from './spotify.js';
+import { getCurrentPlayback, playTrack, addToQueue } from './spotify.js';
 import { selectNextTrack } from './trueRandom.js';
 import { getPlaylistStats, savePlaylistStats } from './storage.js';
 import { getValidToken } from './auth.js';
@@ -13,6 +13,7 @@ let isActive = false;
 let trackHistory = [];
 let wasPlaying = false;
 let playingNextLock = false;
+let pendingQueuedTrack = null;
 
 function handleVisibilityChange() {
   if (!isActive) return;
@@ -46,10 +47,15 @@ async function checkAndResumePlayback() {
     const currentUri = playback.item.uri;
     const isPlaying = playback.is_playing;
 
-    // Spotify moved to a different track while we were not polling
+    // Check if Spotify naturally advanced to our pre-queued track while device was locked
     if (currentUri !== currentTrackUri) {
-      console.log('[TrueRandom] Track changed while device was locked, playing next');
-      playNextTrack(currentDeviceId);
+      if (pendingQueuedTrack && currentUri === pendingQueuedTrack.uri) {
+        console.log('[TrueRandom] Spotify advanced to queued track while device was locked');
+        await advanceToQueuedTrack(pendingQueuedTrack);
+      } else {
+        console.log('[TrueRandom] Track changed while device was locked, playing next');
+        playNextTrack(currentDeviceId);
+      }
       return;
     }
 
@@ -64,6 +70,44 @@ async function checkAndResumePlayback() {
   }
 }
 
+// Called when Spotify naturally advances to the track we pre-queued.
+// Records its play count and queues the track after it.
+async function advanceToQueuedTrack(track) {
+  const stats = getPlaylistStats(currentPlaylistId);
+  if (stats.tracks[track.id] !== undefined) {
+    stats.tracks[track.id].playCount += 1;
+    savePlaylistStats(currentPlaylistId, stats);
+  }
+
+  currentTrackUri = track.uri;
+  trackHistory.push(track);
+  wasPlaying = true;
+  pendingQueuedTrack = null;
+
+  if (onTrackChangeCallback) onTrackChangeCallback(track);
+
+  await queueNextTrack();
+  startPolling(currentDeviceId);
+}
+
+// Peek the next TrueRandom candidate (without recording a play) and add it to
+// Spotify's queue so playback continues seamlessly when the device is locked.
+async function queueNextTrack() {
+  if (!isActive || !currentTracks || currentTracks.length === 0) return;
+
+  const nextTrack = selectNextTrack(currentPlaylistId, currentTracks, { recordPlay: false });
+  if (!nextTrack) return;
+
+  pendingQueuedTrack = nextTrack;
+  try {
+    await addToQueue(nextTrack.uri, currentDeviceId);
+    console.log('[TrueRandom] Queued next track for background playback:', nextTrack.name);
+  } catch (err) {
+    console.error('[TrueRandom] Error queuing next track:', err);
+    pendingQueuedTrack = null;
+  }
+}
+
 export function startTrueRandomPlayback(playlistId, tracks, deviceId, onTrackChange) {
   stopPlayback();
 
@@ -75,6 +119,7 @@ export function startTrueRandomPlayback(playlistId, tracks, deviceId, onTrackCha
   trackHistory = [];
   wasPlaying = false;
   playingNextLock = false;
+  pendingQueuedTrack = null;
 
   document.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -85,6 +130,7 @@ async function playNextTrack(deviceId) {
   if (!isActive || !currentTracks || currentTracks.length === 0) return;
   if (playingNextLock) return;
   playingNextLock = true;
+  pendingQueuedTrack = null;
 
   const nextTrack = selectNextTrack(currentPlaylistId, currentTracks);
   if (!nextTrack) {
@@ -102,6 +148,8 @@ async function playNextTrack(deviceId) {
       onTrackChangeCallback(nextTrack);
     }
     startPolling(deviceId);
+    // Queue the following track so Spotify can advance automatically while locked
+    queueNextTrack();
   } catch (error) {
     console.error('[TrueRandom] Error playing track:', error);
   } finally {
@@ -122,12 +170,14 @@ export function previousTrack(deviceId) {
 
   trackHistory.push(prevTrack);
   currentTrackUri = prevTrack.uri;
+  pendingQueuedTrack = null;
 
   playTrack(prevTrack.uri, deviceId)
     .then(() => {
       wasPlaying = true;
       if (onTrackChangeCallback) onTrackChangeCallback(prevTrack);
       startPolling(deviceId);
+      queueNextTrack();
     })
     .catch((err) => console.error('[TrueRandom] Error playing previous track:', err));
 }
@@ -167,10 +217,15 @@ function startPolling(deviceId) {
         return;
       }
 
-      // Spotify moved to a different track (user skipped via Spotify app)
+      // Track changed — check if Spotify naturally advanced to our queued track
       if (currentUri !== currentTrackUri) {
-        console.log('[TrueRandom] Track changed externally, playing next');
-        playNextTrack(deviceId);
+        if (pendingQueuedTrack && currentUri === pendingQueuedTrack.uri) {
+          console.log('[TrueRandom] Spotify advanced to queued track');
+          await advanceToQueuedTrack(pendingQueuedTrack);
+        } else {
+          console.log('[TrueRandom] Track changed externally, playing next');
+          playNextTrack(deviceId);
+        }
         return;
       }
 
@@ -203,6 +258,7 @@ export function stopPlayback() {
   trackHistory = [];
   wasPlaying = false;
   playingNextLock = false;
+  pendingQueuedTrack = null;
 }
 
 export function skipTrack(deviceId) {

@@ -1,6 +1,6 @@
 import { getPlaylistStats, savePlaylistStats, getDebugMode } from './storage.js';
 
-export function selectNextTrack(playlistId, tracks) {
+export function selectNextTrack(playlistId, tracks, { recordPlay = true } = {}) {
   if (!tracks || tracks.length === 0) return null;
 
   const stats = getPlaylistStats(playlistId);
@@ -104,8 +104,10 @@ export function selectNextTrack(playlistId, tracks) {
   }
 
   // Increment play count
-  stats.tracks[selected.id].playCount += 1;
-  savePlaylistStats(playlistId, stats);
+  if (recordPlay) {
+    stats.tracks[selected.id].playCount += 1;
+    savePlaylistStats(playlistId, stats);
+  }
 
   return selected;
 }
