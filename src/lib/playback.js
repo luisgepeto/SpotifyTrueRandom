@@ -7,22 +7,76 @@ let pollingInterval = null;
 let currentPlaylistId = null;
 let currentTracks = null;
 let currentTrackUri = null;
+let currentDeviceId = null;
 let onTrackChangeCallback = null;
 let isActive = false;
 let trackHistory = [];
 let wasPlaying = false;
 let playingNextLock = false;
 
+function handleVisibilityChange() {
+  if (!isActive) return;
+
+  if (document.visibilityState === 'hidden') {
+    // Stop polling while the page is hidden to avoid throttled/unreliable timers
+    stopPolling();
+  } else if (document.visibilityState === 'visible' && currentDeviceId) {
+    // Page became visible again (device unlocked / app foregrounded)
+    console.log('[TrueRandom] Page became visible, checking playback state');
+    checkAndResumePlayback();
+  }
+}
+
+async function checkAndResumePlayback() {
+  if (!isActive || playingNextLock) return;
+
+  try {
+    const playback = await getCurrentPlayback();
+
+    // No playback state — track ended while device was locked
+    if (!playback || !playback.item) {
+      if (wasPlaying) {
+        console.log('[TrueRandom] Playback stopped while device was locked, playing next');
+        wasPlaying = false;
+        playNextTrack(currentDeviceId);
+      }
+      return;
+    }
+
+    const currentUri = playback.item.uri;
+    const isPlaying = playback.is_playing;
+
+    // Spotify moved to a different track while we were not polling
+    if (currentUri !== currentTrackUri) {
+      console.log('[TrueRandom] Track changed while device was locked, playing next');
+      playNextTrack(currentDeviceId);
+      return;
+    }
+
+    // Same track — update state and restart polling
+    wasPlaying = isPlaying;
+    startPolling(currentDeviceId);
+  } catch (error) {
+    console.error('[TrueRandom] Error checking playback on visibility change:', error);
+    if (!getValidToken()) {
+      stopPlayback();
+    }
+  }
+}
+
 export function startTrueRandomPlayback(playlistId, tracks, deviceId, onTrackChange) {
   stopPlayback();
 
   currentPlaylistId = playlistId;
   currentTracks = tracks;
+  currentDeviceId = deviceId;
   onTrackChangeCallback = onTrackChange;
   isActive = true;
   trackHistory = [];
   wasPlaying = false;
   playingNextLock = false;
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
 
   playNextTrack(deviceId);
 }
@@ -139,10 +193,12 @@ function stopPolling() {
 
 export function stopPlayback() {
   isActive = false;
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
   stopPolling();
   currentPlaylistId = null;
   currentTracks = null;
   currentTrackUri = null;
+  currentDeviceId = null;
   onTrackChangeCallback = null;
   trackHistory = [];
   wasPlaying = false;
