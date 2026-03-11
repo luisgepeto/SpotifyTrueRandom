@@ -4,7 +4,7 @@ import { isAuthenticated } from '../lib/auth.js';
 import { getPlaylist, getAllPlaylistTracks, getDevices, pausePlayback, resumePlayback } from '../lib/spotify.js';
 import { getTrackStats } from '../lib/trueRandom.js';
 import { getPlaylistStats, savePlaylistStats, clearPlaylistStats, getDebugMode, setDebugMode } from '../lib/storage.js';
-import { startTrueRandomQueue, refillQueue, reconcileOnReturn, isSessionActive, getActivePlaylistId, clearSession } from '../lib/playback.js';
+import { startTrueRandomQueue, refillQueue, reconcileOnReturn } from '../lib/playback.js';
 import { getSavedQueue, BATCH_SIZE } from '../lib/queueManager.js';
 import TrackRow from '../components/TrackRow.jsx';
 import './PlaylistDetailPage.css';
@@ -160,15 +160,6 @@ export default function PlaylistDetailPage() {
     }
   };
 
-  const handleStopSession = () => {
-    if (window.confirm('Stop TrueRandom session? The queued songs in Spotify will continue playing, but no new songs will be added.')) {
-      clearSession();
-      setIsActive(false);
-      setCurrentTrack(null);
-      setQueueRemaining(0);
-    }
-  };
-
   const handleToleranceChange = (newTolerance) => {
     const val = Math.max(1, parseInt(newTolerance) || 10);
     setTolerance(val);
@@ -232,17 +223,13 @@ export default function PlaylistDetailPage() {
             </div>
           </div>
           <div className="detail-actions">
-            {!isActive ? (
+            {(!isActive || queueRemaining === 0) && (
               <button
                 className="play-btn"
                 onClick={handleStartQueue}
                 disabled={queueProgress !== null}
               >
                 🎲 Start TrueRandom
-              </button>
-            ) : (
-              <button className="play-btn active" onClick={handleStopSession}>
-                🎲 TrueRandom Active
               </button>
             )}
           </div>
