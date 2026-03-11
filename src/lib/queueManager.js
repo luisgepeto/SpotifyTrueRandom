@@ -1,39 +1,25 @@
-import { addToQueue, playTrack, getRecentlyPlayed, getQueue } from './spotify.js';
-import { getPlaylistStats, savePlaylistStats, getDebugMode } from './storage.js';
+import { addToQueue, playTrack } from './spotify.js';
+import { getGlobalStats, saveGlobalStats, getGlobalTolerance, getDebugMode } from './storage.js';
 
 const BATCH_SIZE = 30;
 const QUEUE_DELAY_MS = 350;
-const QUEUE_STORAGE_KEY = 'truerandom_queue';
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export function getSavedQueue() {
-  const raw = localStorage.getItem(QUEUE_STORAGE_KEY);
-  return raw ? JSON.parse(raw) : null;
-}
-
-export function saveQueue(queueData) {
-  localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queueData));
-}
-
-export function clearSavedQueue() {
-  localStorage.removeItem(QUEUE_STORAGE_KEY);
-}
-
 /**
- * Generate a TrueRandom-ordered batch of tracks without modifying play counts.
- * Play counts are only updated during reconciliation (when we confirm songs were played).
+ * Generate a TrueRandom-ordered batch of tracks using global stats.
+ * Does NOT increment play counts (reconciliation handles that).
  */
-export function generateBatch(playlistId, tracks, batchSize = BATCH_SIZE) {
+export function generateBatch(tracks, batchSize = BATCH_SIZE) {
   if (!tracks || tracks.length === 0) return [];
 
-  const stats = getPlaylistStats(playlistId);
-  const tolerance = stats.tolerance || 10;
+  const stats = getGlobalStats();
+  const tolerance = getGlobalTolerance();
   const debugMode = getDebugMode();
 
-  // Sync stats: get active counts and initialize new tracks
+  // Get active counts for tracks in this playlist
   const activeCounts = [];
   for (const track of tracks) {
     if (stats.tracks[track.id] !== undefined) {
@@ -59,12 +45,11 @@ export function generateBatch(playlistId, tracks, batchSize = BATCH_SIZE) {
     }
   }
 
-  // Save any new track initializations (but don't increment counts)
-  savePlaylistStats(playlistId, stats);
+  // Save any new track initializations
+  saveGlobalStats(stats);
 
-  // Generate batch using simulated play counts
+  // Generate batch using simulated play counts (doesn't modify storage)
   const batch = [];
-  // Copy counts so we can simulate without modifying storage
   const simCounts = {};
   for (const track of tracks) {
     simCounts[track.id] = stats.tracks[track.id].playCount;
@@ -106,7 +91,7 @@ export function generateBatch(playlistId, tracks, batchSize = BATCH_SIZE) {
   }
 
   if (debugMode) {
-    console.log(`[TrueRandom] Generated batch of ${batch.length} songs for playlist ${playlistId}`);
+    console.log(`[TrueRandom] Generated batch of ${batch.length} songs`);
     console.log(batch.map((t, i) => `  ${i + 1}. ${t.name} - ${t.artist}`).join('\n'));
   }
 
@@ -114,142 +99,42 @@ export function generateBatch(playlistId, tracks, batchSize = BATCH_SIZE) {
 }
 
 /**
- * Queue a batch of songs into Spotify. Plays the first song, then adds rest to queue.
- * Returns progress via onProgress callback: (queued, total) => void
+ * Queue a batch: play the first song, then add the rest to Spotify's queue.
+ * Used when no music is currently playing.
  */
 export async function queueBatch(batch, deviceId, onProgress) {
   if (batch.length === 0) return;
 
-  // Play the first song immediately
   await playTrack(batch[0].uri, deviceId);
-
   if (onProgress) onProgress(1, batch.length);
 
-  // Add remaining songs to queue sequentially
   for (let i = 1; i < batch.length; i++) {
     await sleep(QUEUE_DELAY_MS);
     try {
       await addToQueue(batch[i].uri, deviceId);
     } catch (err) {
       console.error(`[TrueRandom] Failed to queue track ${i + 1}/${batch.length}: ${batch[i].name}`, err);
-      // Continue trying remaining tracks
     }
     if (onProgress) onProgress(i + 1, batch.length);
   }
 }
 
 /**
- * Start a TrueRandom session: generate batch, queue it, save state.
+ * Enqueue a batch: add ALL songs to Spotify's queue without interrupting current playback.
+ * Used when music is already playing.
  */
-export async function startQueueSession(playlistId, tracks, deviceId, onProgress) {
-  const batch = generateBatch(playlistId, tracks);
+export async function enqueueBatch(batch, deviceId, onProgress) {
+  if (batch.length === 0) return;
 
-  const queueData = {
-    playlistId,
-    startedAt: Date.now(),
-    tracks: batch.map((t) => ({
-      id: t.id,
-      uri: t.uri,
-      name: t.name,
-      artist: t.artist,
-      albumImage: t.albumImage,
-    })),
-  };
-
-  saveQueue(queueData);
-  await queueBatch(batch, deviceId, onProgress);
-
-  return queueData;
+  for (let i = 0; i < batch.length; i++) {
+    try {
+      await addToQueue(batch[i].uri, deviceId);
+    } catch (err) {
+      console.error(`[TrueRandom] Failed to queue track ${i + 1}/${batch.length}: ${batch[i].name}`, err);
+    }
+    if (onProgress) onProgress(i + 1, batch.length);
+    if (i < batch.length - 1) await sleep(QUEUE_DELAY_MS);
+  }
 }
 
 export { BATCH_SIZE };
-
-/**
- * Reconcile play counts by checking recently-played tracks against our saved queue.
- * Only counts songs that were in our queue and actually appeared in recently-played.
- * Returns { reconciledCount, currentTrack, remainingInQueue }
- */
-export async function reconcilePlayCounts() {
-  const queueData = getSavedQueue();
-  if (!queueData) return null;
-
-  const { playlistId, tracks: queuedTracks, startedAt } = queueData;
-  const debugMode = getDebugMode();
-
-  try {
-    // Fetch recently played and current queue from Spotify
-    const [recentlyPlayed, currentQueue] = await Promise.all([
-      getRecentlyPlayed(50),
-      getQueue().catch(() => null),
-    ]);
-
-    const recentItems = recentlyPlayed?.items || [];
-
-    // Filter recently played to only songs after our session started
-    const relevantPlayed = recentItems
-      .filter((item) => new Date(item.played_at).getTime() >= startedAt)
-      .map((item) => item.track.id);
-
-    // Build set of queued track IDs for this session
-    const queuedIds = new Set(queuedTracks.map((t) => t.id));
-
-    // Count how many times each queued track was played
-    const playedCounts = {};
-    for (const trackId of relevantPlayed) {
-      if (queuedIds.has(trackId)) {
-        playedCounts[trackId] = (playedCounts[trackId] || 0) + 1;
-      }
-    }
-
-    // Update stats
-    const stats = getPlaylistStats(playlistId);
-    let reconciledCount = 0;
-
-    for (const [trackId, count] of Object.entries(playedCounts)) {
-      if (stats.tracks[trackId]) {
-        stats.tracks[trackId].playCount += count;
-        reconciledCount += count;
-      }
-    }
-
-    if (reconciledCount > 0) {
-      savePlaylistStats(playlistId, stats);
-    }
-
-    // Figure out what's still in Spotify's queue
-    const currentlyPlaying = currentQueue?.currently_playing;
-    const remainingQueue = currentQueue?.queue || [];
-
-    // Update saved queue: remove tracks that already played
-    const playedSet = new Set(relevantPlayed);
-    const remainingTracks = queuedTracks.filter((t) => !playedSet.has(t.id));
-
-    // Update startedAt so we don't re-count these tracks
-    const updatedQueue = {
-      ...queueData,
-      tracks: remainingTracks,
-      startedAt: Date.now(),
-    };
-    saveQueue(updatedQueue);
-
-    if (debugMode) {
-      console.log(`[TrueRandom] Reconciled ${reconciledCount} plays`);
-      console.log(`[TrueRandom] ${remainingTracks.length} tracks remaining in saved queue`);
-    }
-
-    return {
-      reconciledCount,
-      currentTrack: currentlyPlaying ? {
-        id: currentlyPlaying.id,
-        name: currentlyPlaying.name,
-        artist: currentlyPlaying.artists?.map((a) => a.name).join(', '),
-        albumImage: currentlyPlaying.album?.images?.[0]?.url,
-      } : null,
-      remainingInQueue: remainingQueue.length,
-      playlistId,
-    };
-  } catch (err) {
-    console.error('[TrueRandom] Reconciliation error:', err);
-    return null;
-  }
-}

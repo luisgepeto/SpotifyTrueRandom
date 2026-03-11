@@ -1,11 +1,11 @@
 const STORAGE_KEYS = {
   TOKENS: 'truerandom_tokens',
   DEBUG: 'truerandom_debug',
+  GLOBAL_STATS: 'truerandom_global_stats',
+  GLOBAL_TOLERANCE: 'truerandom_tolerance',
+  LAST_RECONCILED: 'truerandom_last_reconciled',
+  LAST_QUEUED_PLAYLIST: 'truerandom_last_queued_playlist',
 };
-
-function statsKey(playlistId) {
-  return `truerandom_stats_${playlistId}`;
-}
 
 export function getTokens() {
   const raw = localStorage.getItem(STORAGE_KEYS.TOKENS);
@@ -20,17 +20,43 @@ export function clearTokens() {
   localStorage.removeItem(STORAGE_KEYS.TOKENS);
 }
 
-export function getPlaylistStats(playlistId) {
-  const raw = localStorage.getItem(statsKey(playlistId));
-  return raw ? JSON.parse(raw) : { tolerance: 10, tracks: {} };
+export function getGlobalStats() {
+  const raw = localStorage.getItem(STORAGE_KEYS.GLOBAL_STATS);
+  return raw ? JSON.parse(raw) : { tracks: {} };
 }
 
-export function savePlaylistStats(playlistId, stats) {
-  localStorage.setItem(statsKey(playlistId), JSON.stringify(stats));
+export function saveGlobalStats(stats) {
+  localStorage.setItem(STORAGE_KEYS.GLOBAL_STATS, JSON.stringify(stats));
 }
 
-export function clearPlaylistStats(playlistId) {
-  localStorage.removeItem(statsKey(playlistId));
+export function clearGlobalStats() {
+  localStorage.removeItem(STORAGE_KEYS.GLOBAL_STATS);
+}
+
+export function getGlobalTolerance() {
+  const raw = localStorage.getItem(STORAGE_KEYS.GLOBAL_TOLERANCE);
+  return raw ? parseInt(raw, 10) : 10;
+}
+
+export function saveGlobalTolerance(tolerance) {
+  localStorage.setItem(STORAGE_KEYS.GLOBAL_TOLERANCE, String(tolerance));
+}
+
+export function getLastReconciled() {
+  const raw = localStorage.getItem(STORAGE_KEYS.LAST_RECONCILED);
+  return raw ? parseInt(raw, 10) : null;
+}
+
+export function saveLastReconciled(timestamp) {
+  localStorage.setItem(STORAGE_KEYS.LAST_RECONCILED, String(timestamp));
+}
+
+export function getLastQueuedPlaylist() {
+  return localStorage.getItem(STORAGE_KEYS.LAST_QUEUED_PLAYLIST);
+}
+
+export function saveLastQueuedPlaylist(playlistId) {
+  localStorage.setItem(STORAGE_KEYS.LAST_QUEUED_PLAYLIST, playlistId);
 }
 
 export function getDebugMode() {

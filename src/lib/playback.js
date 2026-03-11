@@ -1,144 +1,49 @@
-import { getCurrentPlayback, pausePlayback, resumePlayback, addToQueue } from './spotify.js';
-import { startQueueSession, getSavedQueue, saveQueue, clearSavedQueue, reconcilePlayCounts, generateBatch, queueBatch, BATCH_SIZE } from './queueManager.js';
-import { getValidToken } from './auth.js';
-
-let pollingInterval = null;
-let currentPlaylistId = null;
-let isActive = false;
-let onStatusCallback = null;
+import { getCurrentPlayback, getDevices } from './spotify.js';
+import { generateBatch, queueBatch, enqueueBatch } from './queueManager.js';
+import { saveLastQueuedPlaylist } from './storage.js';
 
 /**
- * Start a TrueRandom queue session: generate batch, queue songs, save state.
- * onProgress: (queued, total) => void — called as songs are queued
- * onStatus: ({ currentTrack, queueRemaining }) => void — called on UI poll updates
+ * Enqueue TrueRandom songs for a playlist.
+ * - If nothing is playing: plays the first song + queues the rest.
+ * - If music is already playing: adds all songs to queue without interrupting.
+ * Returns the generated batch.
  */
-export async function startTrueRandomQueue(playlistId, tracks, deviceId, onProgress, onStatus) {
-  stopSession();
+export async function enqueueTrueRandom(playlistId, tracks, onProgress) {
+  const devices = await getDevices();
+  if (devices.length === 0) {
+    throw new Error('No active Spotify device found. Open Spotify on your phone or computer.');
+  }
+  const activeDevice = devices.find((d) => d.is_active) || devices[0];
+  const deviceId = activeDevice.id;
 
-  currentPlaylistId = playlistId;
-  isActive = true;
-  onStatusCallback = onStatus;
-
-  const queueData = await startQueueSession(playlistId, tracks, deviceId, onProgress);
-
-  // Notify with first track
-  if (onStatus && queueData.tracks.length > 0) {
-    onStatus({
-      currentTrack: queueData.tracks[0],
-      queueRemaining: queueData.tracks.length - 1,
-    });
+  const batch = generateBatch(tracks);
+  if (batch.length === 0) {
+    throw new Error('No tracks available to queue.');
   }
 
-  // Start light polling for UI updates
-  startLightPolling();
+  // Check current playback to decide behavior
+  const playback = await getCurrentPlayback();
+  const isPlaying = playback?.is_playing === true;
 
-  return queueData;
-}
-
-/**
- * Refill the queue with another batch of songs.
- */
-export async function refillQueue(tracks, deviceId, onProgress) {
-  if (!currentPlaylistId) return null;
-
-  const batch = generateBatch(currentPlaylistId, tracks, BATCH_SIZE);
-  const savedQueue = getSavedQueue();
-
-  // Append to saved queue
-  if (savedQueue) {
-    savedQueue.tracks.push(...batch.map((t) => ({
-      id: t.id, uri: t.uri, name: t.name, artist: t.artist, albumImage: t.albumImage,
-    })));
-    saveQueue(savedQueue);
+  if (isPlaying) {
+    await enqueueBatch(batch, deviceId, onProgress);
+  } else {
+    await queueBatch(batch, deviceId, onProgress);
   }
 
-  // Add to Spotify queue (don't play first — just add all to queue)
-  let queued = 0;
-  for (const track of batch) {
-    try {
-      await addToQueue(track.uri, deviceId);
-    } catch (err) {
-      console.error(`[TrueRandom] Failed to queue: ${track.name}`, err);
-    }
-    queued++;
-    if (onProgress) onProgress(queued, batch.length);
-    await new Promise((r) => setTimeout(r, 350));
-  }
+  saveLastQueuedPlaylist(playlistId);
 
-  return batch;
+  return { batch, startedPlayback: !isPlaying };
 }
 
 /**
- * Light polling (every 30s) to update UI with current playback info.
+ * Check if Spotify is currently playing something.
  */
-function startLightPolling() {
-  stopPolling();
-
-  pollingInterval = setInterval(async () => {
-    if (!isActive) {
-      stopPolling();
-      return;
-    }
-
-    try {
-      const playback = await getCurrentPlayback();
-      if (!playback || !playback.item) return;
-
-      if (onStatusCallback) {
-        const savedQueue = getSavedQueue();
-        onStatusCallback({
-          currentTrack: {
-            id: playback.item.id,
-            name: playback.item.name,
-            artist: playback.item.artists?.map((a) => a.name).join(', '),
-            albumImage: playback.item.album?.images?.[0]?.url,
-          },
-          isPlaying: playback.is_playing,
-          queueRemaining: savedQueue?.tracks?.length ?? 0,
-        });
-      }
-    } catch {
-      if (!getValidToken()) {
-        stopSession();
-      }
-    }
-  }, 30000);
-}
-
-function stopPolling() {
-  if (pollingInterval) {
-    clearInterval(pollingInterval);
-    pollingInterval = null;
+export async function checkIsPlaying() {
+  try {
+    const playback = await getCurrentPlayback();
+    return playback?.is_playing === true;
+  } catch {
+    return false;
   }
 }
-
-export function stopSession() {
-  isActive = false;
-  stopPolling();
-  currentPlaylistId = null;
-  onStatusCallback = null;
-}
-
-/**
- * Reconcile and return results. Called when user opens the app.
- */
-export async function reconcileOnReturn() {
-  return reconcilePlayCounts();
-}
-
-export function isSessionActive() {
-  return isActive || getSavedQueue() !== null;
-}
-
-export function getActivePlaylistId() {
-  if (currentPlaylistId) return currentPlaylistId;
-  const saved = getSavedQueue();
-  return saved?.playlistId ?? null;
-}
-
-export function clearSession() {
-  stopSession();
-  clearSavedQueue();
-}
-
-export { pausePlayback, resumePlayback };

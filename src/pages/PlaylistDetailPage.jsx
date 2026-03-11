@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { isAuthenticated } from '../lib/auth.js';
-import { getPlaylist, getAllPlaylistTracks, getDevices, pausePlayback, resumePlayback } from '../lib/spotify.js';
+import { getPlaylist, getAllPlaylistTracks } from '../lib/spotify.js';
 import { getTrackStats } from '../lib/trueRandom.js';
-import { getPlaylistStats, savePlaylistStats, clearPlaylistStats, getDebugMode, setDebugMode } from '../lib/storage.js';
-import { startTrueRandomQueue, refillQueue, reconcileOnReturn, isSessionActive, getActivePlaylistId, clearSession } from '../lib/playback.js';
-import { getSavedQueue, BATCH_SIZE } from '../lib/queueManager.js';
+import { getGlobalTolerance, saveGlobalTolerance, clearGlobalStats, getDebugMode, setDebugMode } from '../lib/storage.js';
+import { enqueueTrueRandom, checkIsPlaying } from '../lib/playback.js';
+import { reconcileFromRecentlyPlayed } from '../lib/reconcile.js';
+import { BATCH_SIZE } from '../lib/queueManager.js';
 import TrackRow from '../components/TrackRow.jsx';
 import './PlaylistDetailPage.css';
 
@@ -17,16 +18,12 @@ export default function PlaylistDetailPage() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [tolerance, setTolerance] = useState(10);
+  const [tolerance, setTolerance] = useState(getGlobalTolerance());
   const [debugMode, setDebugModeState] = useState(getDebugMode());
   const [sortField, setSortField] = useState('name');
   const [sortAsc, setSortAsc] = useState(true);
-  const [isActive, setIsActive] = useState(false);
-  const [currentTrack, setCurrentTrack] = useState(null);
-  const [deviceId, setDeviceId] = useState(null);
-  const [isPaused, setIsPaused] = useState(false);
-  const [queueProgress, setQueueProgress] = useState(null); // { queued, total }
-  const [queueRemaining, setQueueRemaining] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [queueProgress, setQueueProgress] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -36,9 +33,8 @@ export default function PlaylistDetailPage() {
       ]);
       setPlaylist(playlistData);
       setTracks(allTracks);
-      const trackStats = getTrackStats(playlistId, allTracks);
+      const trackStats = getTrackStats(allTracks);
       setStats(trackStats);
-      setTolerance(trackStats.tolerance);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -51,64 +47,30 @@ export default function PlaylistDetailPage() {
       navigate('/');
       return;
     }
-    loadData();
+
+    // Reconcile on mount, then load data
+    reconcileFromRecentlyPlayed().finally(() => loadData());
+
+    // Check if Spotify is currently playing
+    checkIsPlaying().then(setIsPlaying);
   }, [navigate, loadData]);
 
-  // Check for existing session and reconcile on mount
-  useEffect(() => {
-    const savedQueue = getSavedQueue();
-    if (savedQueue && savedQueue.playlistId === playlistId) {
-      setIsActive(true);
-      setQueueRemaining(savedQueue.tracks.length);
-      // Try to reconcile play counts
-      reconcileOnReturn().then((result) => {
-        if (result) {
-          setQueueRemaining(result.remainingInQueue);
-          if (result.currentTrack) {
-            setCurrentTrack(result.currentTrack);
-          }
-          // Reload stats after reconciliation
-          loadData();
-        }
-      });
-    }
-  }, [playlistId, loadData]);
-
-  const handleStartQueue = async () => {
+  const handleEnqueue = async () => {
     try {
       setError(null);
-      const devices = await getDevices();
-      if (devices.length === 0) {
-        setError('No active Spotify device found. Open Spotify on your phone or computer.');
-        return;
-      }
-      const activeDevice = devices.find((d) => d.is_active) || devices[0];
-      setDeviceId(activeDevice.id);
-
       setQueueProgress({ queued: 0, total: BATCH_SIZE });
 
-      const queueData = await startTrueRandomQueue(
+      const result = await enqueueTrueRandom(
         playlistId,
         tracks,
-        activeDevice.id,
         (queued, total) => setQueueProgress({ queued, total }),
-        (status) => {
-          if (status.currentTrack) setCurrentTrack(status.currentTrack);
-          if (status.queueRemaining !== undefined) setQueueRemaining(status.queueRemaining);
-          if (status.isPlaying !== undefined) setIsPaused(!status.isPlaying);
-        },
       );
 
-      setIsActive(true);
-      setIsPaused(false);
-      setQueueRemaining(queueData.tracks.length - 1);
-      if (queueData.tracks.length > 0) {
-        setCurrentTrack(queueData.tracks[0]);
-      }
       setQueueProgress(null);
+      setIsPlaying(true);
 
-      // Reload stats
-      const trackStats = getTrackStats(playlistId, tracks);
+      // Reload stats (new tracks may have been initialized)
+      const trackStats = getTrackStats(tracks);
       setStats(trackStats);
     } catch (err) {
       setError(err.message);
@@ -116,70 +78,15 @@ export default function PlaylistDetailPage() {
     }
   };
 
-  const handleRefillQueue = async () => {
-    try {
-      if (!deviceId) {
-        const devices = await getDevices();
-        if (devices.length === 0) {
-          setError('No active Spotify device found.');
-          return;
-        }
-        const activeDevice = devices.find((d) => d.is_active) || devices[0];
-        setDeviceId(activeDevice.id);
-      }
-
-      setQueueProgress({ queued: 0, total: BATCH_SIZE });
-
-      const batch = await refillQueue(
-        tracks,
-        deviceId,
-        (queued, total) => setQueueProgress({ queued, total }),
-      );
-
-      if (batch) {
-        setQueueRemaining((prev) => prev + batch.length);
-      }
-      setQueueProgress(null);
-    } catch (err) {
-      setError(err.message);
-      setQueueProgress(null);
-    }
-  };
-
-  const handlePlayPause = async () => {
-    try {
-      if (isPaused) {
-        await resumePlayback();
-        setIsPaused(false);
-      } else {
-        await pausePlayback();
-        setIsPaused(true);
-      }
-    } catch (err) {
-      console.error('Play/Pause error:', err);
-    }
-  };
-
-  const handleStopSession = () => {
-    if (window.confirm('Stop TrueRandom session? The queued songs in Spotify will continue playing, but no new songs will be added.')) {
-      clearSession();
-      setIsActive(false);
-      setCurrentTrack(null);
-      setQueueRemaining(0);
-    }
-  };
-
   const handleToleranceChange = (newTolerance) => {
     const val = Math.max(1, parseInt(newTolerance) || 10);
     setTolerance(val);
-    const currentStats = getPlaylistStats(playlistId);
-    currentStats.tolerance = val;
-    savePlaylistStats(playlistId, currentStats);
+    saveGlobalTolerance(val);
   };
 
   const handleClearStats = () => {
-    if (window.confirm('Are you sure you want to clear all statistics for this playlist? This cannot be undone.')) {
-      clearPlaylistStats(playlistId);
+    if (window.confirm('Are you sure you want to clear all play statistics? This cannot be undone.')) {
+      clearGlobalStats();
       loadData();
     }
   };
@@ -210,7 +117,7 @@ export default function PlaylistDetailPage() {
   }) : [];
 
   if (loading) return <div className="loading">Loading playlist...</div>;
-  if (error) return <div className="error">Error: {error}</div>;
+  if (error && !tracks.length) return <div className="error">Error: {error}</div>;
 
   return (
     <div className="playlist-detail">
@@ -232,19 +139,13 @@ export default function PlaylistDetailPage() {
             </div>
           </div>
           <div className="detail-actions">
-            {!isActive ? (
-              <button
-                className="play-btn"
-                onClick={handleStartQueue}
-                disabled={queueProgress !== null}
-              >
-                🎲 Start TrueRandom
-              </button>
-            ) : (
-              <button className="play-btn active" onClick={handleStopSession}>
-                🎲 TrueRandom Active
-              </button>
-            )}
+            <button
+              className="play-btn"
+              onClick={handleEnqueue}
+              disabled={queueProgress !== null}
+            >
+              {isPlaying ? '🎲 Enqueue TrueRandom' : '🎲 Start TrueRandom'}
+            </button>
           </div>
         </div>
 
@@ -263,39 +164,7 @@ export default function PlaylistDetailPage() {
           </div>
         )}
 
-        {/* Now playing + controls */}
-        <div className="now-playing">
-          {isActive && currentTrack ? (
-            <>
-              <div className="now-playing-track">
-                {currentTrack.albumImage && (
-                  <img className="now-playing-art" src={currentTrack.albumImage} alt="" />
-                )}
-                <div className="now-playing-info">
-                  <span className="now-playing-name">{currentTrack.name}</span>
-                  <span className="now-playing-artist">{currentTrack.artist}</span>
-                </div>
-              </div>
-              <div className="now-playing-controls">
-                <button className="ctrl-btn play-pause" onClick={handlePlayPause} title={isPaused ? 'Play' : 'Pause'}>
-                  {isPaused ? (
-                    <svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor"><path d="M3 1.713a.7.7 0 0 1 1.05-.607l10.89 6.288a.7.7 0 0 1 0 1.212L4.05 14.894A.7.7 0 0 1 3 14.288V1.713z"/></svg>
-                  ) : (
-                    <svg viewBox="0 0 16 16" width="20" height="20" fill="currentColor"><path d="M2.7 1a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7H2.7zm8 0a.7.7 0 0 0-.7.7v12.6a.7.7 0 0 0 .7.7h2.6a.7.7 0 0 0 .7-.7V1.7a.7.7 0 0 0-.7-.7h-2.6z"/></svg>
-                  )}
-                </button>
-              </div>
-              <div className="queue-status">
-                <span className="queue-remaining">{queueRemaining} songs queued</span>
-                <button className="refill-btn" onClick={handleRefillQueue} disabled={queueProgress !== null}>
-                  + Refill Queue
-                </button>
-              </div>
-            </>
-          ) : (
-            <span className="now-playing-empty">No track playing</span>
-          )}
-        </div>
+        {error && <div className="error-inline">{error}</div>}
 
         <div className="stats-summary">
           <div className="stat-item">

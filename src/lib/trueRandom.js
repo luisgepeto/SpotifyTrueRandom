@@ -1,10 +1,10 @@
-import { getPlaylistStats, savePlaylistStats, getDebugMode } from './storage.js';
+import { getGlobalStats, saveGlobalStats, getGlobalTolerance, getDebugMode } from './storage.js';
 
-export function selectNextTrack(playlistId, tracks) {
+export function selectNextTrack(tracks) {
   if (!tracks || tracks.length === 0) return null;
 
-  const stats = getPlaylistStats(playlistId);
-  const tolerance = stats.tolerance || 10;
+  const stats = getGlobalStats();
+  const tolerance = getGlobalTolerance();
   const debugMode = getDebugMode();
 
   // Sync stats with current playlist tracks
@@ -28,7 +28,6 @@ export function selectNextTrack(playlistId, tracks) {
         artist: track.artist,
       };
     } else {
-      // Update cached metadata
       stats.tracks[track.id].name = track.name;
       stats.tracks[track.id].artist = track.artist;
     }
@@ -81,37 +80,36 @@ export function selectNextTrack(playlistId, tracks) {
   if (debugMode) {
     const totalWeight = candidates.reduce((sum, c) => sum + c.weight, 0);
     console.group(
-      `%c[TrueRandom Debug] Playlist: "${playlistId}"`,
+      '%c[TrueRandom Debug] Selection',
       'color: #1DB954; font-weight: bold;'
     );
-    console.log(`Promedio: ${average.toFixed(1)} | Tolerancia: ${tolerance} | Umbral: ${threshold.toFixed(1)}`);
+    console.log(`Average: ${average.toFixed(1)} | Tolerance: ${tolerance} | Threshold: ${threshold.toFixed(1)}`);
     console.table(
       allTrackData.map((d) => ({
-        Canción: `${d.track.name} - ${d.track.artist}`,
-        Conteo: d.count,
-        Peso: d.isCandidate ? d.weight.toFixed(1) : '-',
-        Probabilidad: d.isCandidate && totalWeight > 0
+        Song: `${d.track.name} - ${d.track.artist}`,
+        Count: d.count,
+        Weight: d.isCandidate ? d.weight.toFixed(1) : '-',
+        Probability: d.isCandidate && totalWeight > 0
           ? `${((d.weight / totalWeight) * 100).toFixed(1)}%`
           : '-',
-        Estado: d.isCandidate ? 'candidata' : 'EXCLUIDA',
+        Status: d.isCandidate ? 'candidate' : 'EXCLUDED',
       }))
     );
     console.log(
-      `%c► Seleccionada: ${selected.name} (conteo: ${stats.tracks[selected.id].playCount} → ${stats.tracks[selected.id].playCount + 1})`,
+      `%c► Selected: ${selected.name} (count: ${stats.tracks[selected.id].playCount})`,
       'color: #1DB954; font-weight: bold;'
     );
     console.groupEnd();
   }
 
-  // Increment play count
-  stats.tracks[selected.id].playCount += 1;
-  savePlaylistStats(playlistId, stats);
+  // Save any new track initializations (but don't increment count)
+  saveGlobalStats(stats);
 
   return selected;
 }
 
-export function getTrackStats(playlistId, tracks) {
-  const stats = getPlaylistStats(playlistId);
+export function getTrackStats(tracks) {
+  const stats = getGlobalStats();
 
   const seenIds = new Set();
   const uniqueTracks = tracks.filter((track) => {
@@ -138,6 +136,5 @@ export function getTrackStats(playlistId, tracks) {
     average,
     min,
     max,
-    tolerance: stats.tolerance || 10,
   };
 }

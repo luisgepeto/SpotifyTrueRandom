@@ -110,110 +110,9 @@
   background-color: #1ed760;
 }
 
-.play-btn.active {
-  background-color: #1ed760;
-  box-shadow: 0 0 12px rgba(30, 215, 96, 0.4);
-}
-
-/* Now Playing inline controls */
-.now-playing {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  background: #181818;
-  border-radius: 8px;
-  padding: 12px 16px;
-  margin-bottom: 1rem;
-  min-height: 72px;
-}
-
-.now-playing-empty {
-  color: #535353;
-  font-size: 0.85rem;
-}
-
-.now-playing-track {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-  min-width: 0;
-}
-
-.now-playing-art {
-  width: 48px;
-  height: 48px;
-  border-radius: 4px;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
-.now-playing-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.now-playing-name {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: #fff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.now-playing-artist {
-  font-size: 0.75rem;
-  color: #b3b3b3;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.now-playing-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.ctrl-btn {
-  background: none;
-  border: none;
-  color: #b3b3b3;
-  cursor: pointer;
-  padding: 8px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color 0.15s, transform 0.1s;
-}
-
-.ctrl-btn:hover {
-  color: #fff;
-  transform: scale(1.1);
-}
-
-.ctrl-btn.play-pause {
-  background: #fff;
-  color: #000;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-}
-
-.ctrl-btn.play-pause:hover {
-  transform: scale(1.06);
-}
-
-.now-playing-hint {
-  font-size: 0.675rem;
-  color: #535353;
-  white-space: nowrap;
-  flex-shrink: 0;
+.play-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Queue progress bar */
@@ -248,41 +147,14 @@
   white-space: nowrap;
 }
 
-/* Queue status in now-playing bar */
-.queue-status {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-
-.queue-remaining {
-  font-size: 0.75rem;
-  color: #b3b3b3;
-  white-space: nowrap;
-}
-
-.refill-btn {
-  background: #282828;
-  color: #1DB954;
-  border: 1px solid #1DB954;
-  padding: 4px 12px;
-  border-radius: 50px;
-  cursor: pointer;
-  font-size: 0.75rem;
-  font-weight: 600;
-  white-space: nowrap;
-  transition: background-color 0.2s;
-}
-
-.refill-btn:hover {
-  background: #1DB954;
-  color: #fff;
-}
-
-.refill-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+/* Inline error */
+.error-inline {
+  color: #ff6b6b;
+  font-size: 0.85rem;
+  padding: 8px 16px;
+  background: rgba(255, 107, 107, 0.1);
+  border-radius: 8px;
+  margin-bottom: 1rem;
 }
 
 .stats-summary {
@@ -403,7 +275,6 @@
     padding-top: 0.75rem;
   }
 
-  /* Wrap the play button below the playlist info on narrow screens */
   .detail-header {
     flex-wrap: wrap;
     gap: 0.75rem;
@@ -418,7 +289,6 @@
     text-align: center;
   }
 
-  /* Smaller playlist cover */
   .playlist-cover {
     width: 56px;
     height: 56px;
@@ -428,20 +298,6 @@
     font-size: 1.1rem;
   }
 
-  /* Compact now-playing widget */
-  .now-playing {
-    padding: 8px 12px;
-    min-height: 0;
-    margin-bottom: 0.5rem;
-    gap: 10px;
-  }
-
-  /* Hide the "Volume & seek via Spotify app" hint on mobile */
-  .now-playing-hint {
-    display: none;
-  }
-
-  /* Compact stats row */
   .stats-summary {
     gap: 0.5rem;
     margin-bottom: 0.5rem;
@@ -457,7 +313,6 @@
     font-size: 1rem;
   }
 
-  /* Compact settings row */
   .settings-row {
     gap: 0.75rem;
     margin-bottom: 0.5rem;
@@ -468,7 +323,6 @@
     grid-template-columns: 1fr 100px;
   }
 
-  /* Hide artist column header on small screens */
   .tracks-header .col-artist {
     display: none;
   }

@@ -2,11 +2,14 @@ import { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { isAuthenticated, handleCallback } from './lib/auth.js';
 import { getProfile } from './lib/spotify.js';
+import { reconcileFromRecentlyPlayed } from './lib/reconcile.js';
 import Navbar from './components/Navbar.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import PlaylistsPage from './pages/PlaylistsPage.jsx';
 import PlaylistDetailPage from './pages/PlaylistDetailPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
+
+const RECONCILE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 // Handle OAuth callback before React renders.
 // Spotify redirects to http://127.0.0.1:5173/?code=xxx
@@ -55,6 +58,16 @@ export default function App() {
       getProfile()
         .then(setUser)
         .catch(() => setUser(null));
+
+      // Reconcile on app load
+      reconcileFromRecentlyPlayed();
+
+      // Periodic reconciliation while app is open
+      const interval = setInterval(() => {
+        reconcileFromRecentlyPlayed();
+      }, RECONCILE_INTERVAL_MS);
+
+      return () => clearInterval(interval);
     }
   }, [ready]);
 
