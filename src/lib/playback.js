@@ -102,9 +102,11 @@ function startPolling(deviceId) {
 
       const currentUri = playback.item.uri;
       const isPlaying = playback.is_playing;
+      const progressMs = playback.progress_ms;
+      const durationMs = playback.item.duration_ms;
 
-      // Song ended: was playing, now stopped, same track
-      if (!isPlaying && wasPlaying && currentUri === currentTrackUri) {
+      // Song ended: was playing, now stopped, same track, and near the end
+      if (!isPlaying && wasPlaying && currentUri === currentTrackUri && durationMs - progressMs < 3000) {
         console.log('[TrueRandom] Song finished, playing next');
         wasPlaying = false;
         playNextTrack(deviceId);
