@@ -87,9 +87,14 @@ function startPolling(deviceId) {
       const progressMs = playback.progress_ms;
       const durationMs = playback.item.duration_ms;
 
-      // If Spotify moved to a different track (song ended naturally)
-      // or if we're very close to the end
-      if (currentUri !== currentTrackUri || (durationMs - progressMs < 3000 && !playback.is_playing)) {
+      // Song ended: Spotify stopped playing and we're near the end of our track
+      if (!playback.is_playing && currentUri === currentTrackUri && durationMs - progressMs < 5000) {
+        playNextTrack(deviceId);
+        return;
+      }
+
+      // Spotify moved to a different track (e.g. user skipped via Spotify app)
+      if (currentUri !== currentTrackUri) {
         playNextTrack(deviceId);
       }
     } catch {
@@ -98,7 +103,7 @@ function startPolling(deviceId) {
         stopPlayback();
       }
     }
-  }, 3000);
+  }, 2000);
 }
 
 function stopPolling() {
