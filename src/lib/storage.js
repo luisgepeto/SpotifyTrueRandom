@@ -1,6 +1,7 @@
 const STORAGE_KEYS = {
   TOKENS: 'truerandom_tokens',
   DEBUG: 'truerandom_debug',
+  QUEUE_SIZE: 'truerandom_queue_size',
 };
 
 function statsKey(playlistId) {
@@ -39,4 +40,13 @@ export function getDebugMode() {
 
 export function setDebugMode(enabled) {
   localStorage.setItem(STORAGE_KEYS.DEBUG, String(enabled));
+}
+
+export function getQueueSize() {
+  const raw = localStorage.getItem(STORAGE_KEYS.QUEUE_SIZE);
+  return raw ? Math.max(1, parseInt(raw, 10)) : 50;
+}
+
+export function setQueueSize(size) {
+  localStorage.setItem(STORAGE_KEYS.QUEUE_SIZE, String(Math.max(1, size)));
 }

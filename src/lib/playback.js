@@ -1,6 +1,6 @@
 import { getCurrentPlayback, playTrack, addToQueue } from './spotify.js';
 import { selectNextTrack } from './trueRandom.js';
-import { getPlaylistStats, savePlaylistStats } from './storage.js';
+import { getPlaylistStats, savePlaylistStats, getQueueSize } from './storage.js';
 import { getValidToken } from './auth.js';
 
 let pollingInterval = null;
@@ -13,7 +13,8 @@ let isActive = false;
 let trackHistory = [];
 let wasPlaying = false;
 let playingNextLock = false;
-let pendingQueuedTrack = null;
+// Ordered list of tracks we have pre-queued with Spotify (not yet confirmed played).
+let pendingQueuedTracks = [];
 
 function handleVisibilityChange() {
   if (!isActive) return;
@@ -34,7 +35,7 @@ async function checkAndResumePlayback() {
   try {
     const playback = await getCurrentPlayback();
 
-    // No playback state — track ended while device was locked
+    // No playback state — all queued tracks finished while device was locked
     if (!playback || !playback.item) {
       if (wasPlaying) {
         console.log('[TrueRandom] Playback stopped while device was locked, playing next');
@@ -47,11 +48,12 @@ async function checkAndResumePlayback() {
     const currentUri = playback.item.uri;
     const isPlaying = playback.is_playing;
 
-    // Check if Spotify naturally advanced to our pre-queued track while device was locked
     if (currentUri !== currentTrackUri) {
-      if (pendingQueuedTrack && currentUri === pendingQueuedTrack.uri) {
-        console.log('[TrueRandom] Spotify advanced to queued track while device was locked');
-        await advanceToQueuedTrack(pendingQueuedTrack);
+      const queueIndex = pendingQueuedTracks.findIndex((t) => t.uri === currentUri);
+      if (queueIndex !== -1) {
+        // Spotify naturally advanced through one or more queued tracks while locked
+        console.log('[TrueRandom] Spotify advanced through queued tracks while device was locked');
+        await advanceToQueuedTracks(queueIndex);
       } else {
         console.log('[TrueRandom] Track changed while device was locked, playing next');
         playNextTrack(currentDeviceId);
@@ -70,41 +72,69 @@ async function checkAndResumePlayback() {
   }
 }
 
-// Called when Spotify naturally advances to the track we pre-queued.
-// Records its play count and queues the track after it.
-async function advanceToQueuedTrack(track) {
+// Called when Spotify has naturally advanced to pendingQueuedTracks[targetIndex].
+// Records play counts for all tracks up to and including that index, updates
+// internal state, and refills the queue.
+async function advanceToQueuedTracks(targetIndex) {
+  const nowPlaying = pendingQueuedTracks[targetIndex];
+
   const stats = getPlaylistStats(currentPlaylistId);
-  if (stats.tracks[track.id] !== undefined) {
-    stats.tracks[track.id].playCount += 1;
-    savePlaylistStats(currentPlaylistId, stats);
+  for (let i = 0; i <= targetIndex; i++) {
+    const t = pendingQueuedTracks[i];
+    if (stats.tracks[t.id] !== undefined) {
+      stats.tracks[t.id].playCount += 1;
+    }
+    trackHistory.push(t);
   }
+  savePlaylistStats(currentPlaylistId, stats);
 
-  currentTrackUri = track.uri;
-  trackHistory.push(track);
+  pendingQueuedTracks.splice(0, targetIndex + 1);
+  currentTrackUri = nowPlaying.uri;
   wasPlaying = true;
-  pendingQueuedTrack = null;
 
-  if (onTrackChangeCallback) onTrackChangeCallback(track);
+  if (onTrackChangeCallback) onTrackChangeCallback(nowPlaying);
 
-  await queueNextTrack();
+  await fillQueue();
   startPolling(currentDeviceId);
 }
 
-// Peek the next TrueRandom candidate (without recording a play) and add it to
-// Spotify's queue so playback continues seamlessly when the device is locked.
-async function queueNextTrack() {
+// Select the next N tracks (without recording plays) and add them to Spotify's
+// queue so playback continues automatically even when the screen is locked.
+// Uses virtualCounts so consecutive selections favour different tracks.
+// Queue size is read on each call so live setting changes take effect immediately.
+async function fillQueue() {
   if (!isActive || !currentTracks || currentTracks.length === 0) return;
 
-  const nextTrack = selectNextTrack(currentPlaylistId, currentTracks, { recordPlay: false });
-  if (!nextTrack) return;
+  const needed = getQueueSize() - pendingQueuedTracks.length;
+  if (needed <= 0) return;
 
-  pendingQueuedTrack = nextTrack;
-  try {
-    await addToQueue(nextTrack.uri, currentDeviceId);
-    console.log('[TrueRandom] Queued next track for background playback:', nextTrack.name);
-  } catch (err) {
-    console.error('[TrueRandom] Error queuing next track:', err);
-    pendingQueuedTrack = null;
+  // Seed virtual counts from tracks already pending so we don't repeat them
+  const virtualCounts = {};
+  for (const qt of pendingQueuedTracks) {
+    virtualCounts[qt.id] = (virtualCounts[qt.id] || 0) + 1;
+  }
+
+  for (let i = 0; i < needed; i++) {
+    if (!isActive) break;
+
+    const nextTrack = selectNextTrack(currentPlaylistId, currentTracks, {
+      recordPlay: false,
+      virtualCounts,
+    });
+    if (!nextTrack) break;
+
+    // Increment virtual count so the next iteration picks a different track
+    virtualCounts[nextTrack.id] = (virtualCounts[nextTrack.id] || 0) + 1;
+
+    if (!isActive) break;
+    try {
+      await addToQueue(nextTrack.uri, currentDeviceId);
+      pendingQueuedTracks.push(nextTrack);
+      console.log('[TrueRandom] Queued:', nextTrack.name);
+    } catch (err) {
+      console.error('[TrueRandom] Error queuing track:', err);
+      break;
+    }
   }
 }
 
@@ -119,7 +149,7 @@ export function startTrueRandomPlayback(playlistId, tracks, deviceId, onTrackCha
   trackHistory = [];
   wasPlaying = false;
   playingNextLock = false;
-  pendingQueuedTrack = null;
+  pendingQueuedTracks = [];
 
   document.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -130,7 +160,8 @@ async function playNextTrack(deviceId) {
   if (!isActive || !currentTracks || currentTracks.length === 0) return;
   if (playingNextLock) return;
   playingNextLock = true;
-  pendingQueuedTrack = null;
+  // Discard any queued tracks — playTrack() with uris resets Spotify's context
+  pendingQueuedTracks = [];
 
   const nextTrack = selectNextTrack(currentPlaylistId, currentTracks);
   if (!nextTrack) {
@@ -148,8 +179,8 @@ async function playNextTrack(deviceId) {
       onTrackChangeCallback(nextTrack);
     }
     startPolling(deviceId);
-    // Queue the following track so Spotify can advance automatically while locked
-    queueNextTrack();
+    // Pre-fill Spotify's queue so playback continues while the device is locked
+    fillQueue();
   } catch (error) {
     console.error('[TrueRandom] Error playing track:', error);
   } finally {
@@ -170,14 +201,14 @@ export function previousTrack(deviceId) {
 
   trackHistory.push(prevTrack);
   currentTrackUri = prevTrack.uri;
-  pendingQueuedTrack = null;
+  pendingQueuedTracks = [];
 
   playTrack(prevTrack.uri, deviceId)
     .then(() => {
       wasPlaying = true;
       if (onTrackChangeCallback) onTrackChangeCallback(prevTrack);
       startPolling(deviceId);
-      queueNextTrack();
+      fillQueue();
     })
     .catch((err) => console.error('[TrueRandom] Error playing previous track:', err));
 }
@@ -217,11 +248,12 @@ function startPolling(deviceId) {
         return;
       }
 
-      // Track changed — check if Spotify naturally advanced to our queued track
+      // Track changed — check if Spotify naturally advanced through our queue
       if (currentUri !== currentTrackUri) {
-        if (pendingQueuedTrack && currentUri === pendingQueuedTrack.uri) {
+        const queueIndex = pendingQueuedTracks.findIndex((t) => t.uri === currentUri);
+        if (queueIndex !== -1) {
           console.log('[TrueRandom] Spotify advanced to queued track');
-          await advanceToQueuedTrack(pendingQueuedTrack);
+          await advanceToQueuedTracks(queueIndex);
         } else {
           console.log('[TrueRandom] Track changed externally, playing next');
           playNextTrack(deviceId);
@@ -258,7 +290,7 @@ export function stopPlayback() {
   trackHistory = [];
   wasPlaying = false;
   playingNextLock = false;
-  pendingQueuedTrack = null;
+  pendingQueuedTracks = [];
 }
 
 export function skipTrack(deviceId) {
