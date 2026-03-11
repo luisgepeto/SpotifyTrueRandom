@@ -11,6 +11,7 @@ export default function PlaylistsPage() {
   const [playlists, setPlaylists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const activePlaylistId = isPlaybackActive() ? getCurrentPlaylistId() : null;
 
   useEffect(() => {
@@ -22,7 +23,10 @@ export default function PlaylistsPage() {
     async function loadPlaylists() {
       try {
         const data = await getPlaylists(50);
-        setPlaylists(data.items || []);
+        const sorted = (data.items || []).sort((a, b) =>
+          a.name.localeCompare(b.name)
+        );
+        setPlaylists(sorted);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -36,6 +40,11 @@ export default function PlaylistsPage() {
   if (loading) return <div className="loading">Loading playlists...</div>;
   if (error) return <div className="error">Error: {error}</div>;
 
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const filteredPlaylists = normalizedQuery
+    ? playlists.filter((p) => p.name.toLowerCase().includes(normalizedQuery))
+    : playlists;
+
   return (
     <div className="playlists-page">
       <div className="playlists-sticky-header">
@@ -43,9 +52,17 @@ export default function PlaylistsPage() {
         <p className="page-summary">
           Select a playlist to play it in <strong>TrueRandom</strong> mode — every song gets played roughly the same number of times, so nothing gets over-repeated or forgotten.
         </p>
+        <input
+          className="playlists-search"
+          type="search"
+          placeholder="Search playlists..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          aria-label="Search playlists"
+        />
       </div>
       <div className="playlists-grid">
-        {playlists.map((playlist) => (
+        {filteredPlaylists.map((playlist) => (
           <PlaylistCard
             key={playlist.id}
             playlist={playlist}
@@ -54,8 +71,10 @@ export default function PlaylistsPage() {
           />
         ))}
       </div>
-      {playlists.length === 0 && (
-        <p className="empty">No playlists found.</p>
+      {filteredPlaylists.length === 0 && (
+        <p className="empty">
+          {normalizedQuery ? 'No playlists match your search.' : 'No playlists found.'}
+        </p>
       )}
     </div>
   );

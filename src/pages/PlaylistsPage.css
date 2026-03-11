@@ -23,6 +23,28 @@
   line-height: 1.5;
 }
 
+.playlists-search {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+  background: var(--bg-secondary, #282828);
+  border: 1px solid #404040;
+  border-radius: 4px;
+  color: var(--text-primary, #fff);
+  font-size: 0.95rem;
+  box-sizing: border-box;
+}
+
+.playlists-search::placeholder {
+  color: #b3b3b3;
+}
+
+.playlists-search:focus {
+  outline: none;
+  border-color: var(--accent, #1db954);
+}
+
 .playlists-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
