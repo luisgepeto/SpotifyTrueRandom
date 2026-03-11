@@ -1,7 +1,7 @@
 import { saveTokens, clearTokens, getTokens } from './storage.js';
 
 const CLIENT_ID = 'c41aae098f9f4694bf9118d0f3ab014c';
-const REDIRECT_URI = `http://127.0.0.1:${window.location.port}/`;
+const REDIRECT_URI = window.location.origin + window.location.pathname;
 const SCOPES = [
   'user-read-private',
   'user-read-email',
