@@ -55,3 +55,16 @@
   color: #1DB954;
   background: rgba(29, 185, 84, 0.1);
 }
+
+/* ── Mobile responsive styles ── */
+@media (max-width: 600px) {
+  .track-row {
+    grid-template-columns: 1fr 100px;
+    padding: 10px 12px;
+  }
+
+  /* Hide artist column on small screens */
+  .track-row .col-artist {
+    display: none;
+  }
+}
