@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { isAuthenticated } from '../lib/auth.js';
 import { getPlaylist, getAllPlaylistTracks, getDevices, pausePlayback, resumePlayback } from '../lib/spotify.js';
 import { getTrackStats } from '../lib/trueRandom.js';
-import { getPlaylistStats, savePlaylistStats, clearPlaylistStats, getDebugMode, setDebugMode } from '../lib/storage.js';
+import { getPlaylistStats, savePlaylistStats, clearPlaylistStats, clearPlaybackHistory, getDebugMode, setDebugMode } from '../lib/storage.js';
 import { startTrueRandomPlayback, skipTrack, previousTrack, isPlaybackActive, getCurrentPlaylistId } from '../lib/playback.js';
 import TrackRow from '../components/TrackRow.jsx';
 import './PlaylistDetailPage.css';
@@ -113,6 +113,7 @@ export default function PlaylistDetailPage() {
   const handleClearStats = () => {
     if (window.confirm('Are you sure you want to clear all statistics for this playlist? This cannot be undone.')) {
       clearPlaylistStats(playlistId);
+      clearPlaybackHistory(playlistId);
       loadData();
     }
   };
