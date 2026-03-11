@@ -113,7 +113,14 @@ export function selectNextTrack(playlistId, tracks) {
 export function getTrackStats(playlistId, tracks) {
   const stats = getPlaylistStats(playlistId);
 
-  const trackStats = tracks.map((track) => {
+  const seenIds = new Set();
+  const uniqueTracks = tracks.filter((track) => {
+    if (seenIds.has(track.id)) return false;
+    seenIds.add(track.id);
+    return true;
+  });
+
+  const trackStats = uniqueTracks.map((track) => {
     const data = stats.tracks[track.id];
     return {
       ...track,
