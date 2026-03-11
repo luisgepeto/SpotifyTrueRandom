@@ -141,4 +141,24 @@ export function clearSession() {
   clearSavedQueue();
 }
 
+/**
+ * Reconnect to an existing TrueRandom session after returning to the playlist page.
+ * Updates the status callback for the new component instance and resumes polling.
+ * Returns true if a matching session was found, false otherwise.
+ */
+export function resumeSession(playlistId, onStatus) {
+  const savedQueue = getSavedQueue();
+  if (!savedQueue || savedQueue.playlistId !== playlistId) return false;
+
+  currentPlaylistId = playlistId;
+  isActive = true;
+  onStatusCallback = onStatus;
+
+  if (!pollingInterval) {
+    startLightPolling();
+  }
+
+  return true;
+}
+
 export { pausePlayback, resumePlayback };

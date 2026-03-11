@@ -4,7 +4,7 @@ import { isAuthenticated } from '../lib/auth.js';
 import { getPlaylist, getAllPlaylistTracks, getDevices, pausePlayback, resumePlayback } from '../lib/spotify.js';
 import { getTrackStats } from '../lib/trueRandom.js';
 import { getPlaylistStats, savePlaylistStats, clearPlaylistStats, getDebugMode, setDebugMode } from '../lib/storage.js';
-import { startTrueRandomQueue, refillQueue, reconcileOnReturn, isSessionActive, getActivePlaylistId, clearSession } from '../lib/playback.js';
+import { startTrueRandomQueue, refillQueue, reconcileOnReturn, isSessionActive, getActivePlaylistId, clearSession, resumeSession } from '../lib/playback.js';
 import { getSavedQueue, BATCH_SIZE } from '../lib/queueManager.js';
 import TrackRow from '../components/TrackRow.jsx';
 import './PlaylistDetailPage.css';
@@ -60,10 +60,30 @@ export default function PlaylistDetailPage() {
     if (savedQueue && savedQueue.playlistId === playlistId) {
       setIsActive(true);
       setQueueRemaining(savedQueue.tracks.length);
-      // Try to reconcile play counts
+
+      // Show the first saved track immediately so the UI is not blank while reconciling.
+      // Reconciliation will overwrite this with the confirmed currently-playing track if available.
+      if (savedQueue.tracks.length > 0) {
+        setCurrentTrack(savedQueue.tracks[0]);
+      }
+
+      // Reconnect polling to this component instance so status updates are received
+      resumeSession(playlistId, (status) => {
+        if (status.currentTrack) setCurrentTrack(status.currentTrack);
+        if (status.queueRemaining !== undefined) setQueueRemaining(status.queueRemaining);
+        if (status.isPlaying !== undefined) setIsPaused(!status.isPlaying);
+      });
+
+      // Reconcile play counts against recently-played tracks
       reconcileOnReturn().then((result) => {
         if (result) {
-          setQueueRemaining(result.remainingInQueue);
+          // Use the updated saved queue length for consistency with polling.
+          // Guard against the user having navigated to a different playlist while reconciliation ran.
+          const updatedQueue = getSavedQueue();
+          if (updatedQueue?.playlistId === playlistId) {
+            setQueueRemaining(updatedQueue.tracks.length);
+          }
+          // Replace the temporary initial track with the confirmed currently-playing one if available
           if (result.currentTrack) {
             setCurrentTrack(result.currentTrack);
           }
