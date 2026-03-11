@@ -1,5 +1,5 @@
-import { addToQueue, playTracks } from './spotify.js';
-import { getGlobalStats, saveGlobalStats, getGlobalTolerance, getDebugMode } from './storage.js';
+import { addToQueue, playTrack } from './spotify.js';
+import { getGlobalStats, getGlobalTolerance, getDebugMode } from './storage.js';
 
 const BATCH_SIZE = 30;
 const QUEUE_DELAY_MS = 350;
@@ -10,7 +10,7 @@ function sleep(ms) {
 
 /**
  * Generate a TrueRandom-ordered batch of tracks using global stats.
- * Does NOT increment play counts (reconciliation handles that).
+ * Does NOT modify global stats — simulation only.
  */
 export function generateBatch(tracks, batchSize = BATCH_SIZE) {
   if (!tracks || tracks.length === 0) return [];
@@ -19,7 +19,7 @@ export function generateBatch(tracks, batchSize = BATCH_SIZE) {
   const tolerance = getGlobalTolerance();
   const debugMode = getDebugMode();
 
-  // Get active counts for tracks in this playlist
+  // Get counts for tracks that already exist in global stats
   const activeCounts = [];
   for (const track of tracks) {
     if (stats.tracks[track.id] !== undefined) {
@@ -31,30 +31,14 @@ export function generateBatch(tracks, batchSize = BATCH_SIZE) {
     ? activeCounts.reduce((a, b) => a + b, 0) / activeCounts.length
     : 0;
 
-  // Initialize new tracks to average
-  for (const track of tracks) {
-    if (stats.tracks[track.id] === undefined) {
-      stats.tracks[track.id] = {
-        playCount: Math.round(average),
-        name: track.name,
-        artist: track.artist,
-      };
-    } else {
-      stats.tracks[track.id].name = track.name;
-      stats.tracks[track.id].artist = track.artist;
-    }
-  }
-
-  // Save any new track initializations
-  saveGlobalStats(stats);
-
-  // Generate batch using simulated play counts (doesn't modify storage)
-  const batch = [];
+  // Build simulation counts — new tracks start at average for fair weighting,
+  // but this is NOT persisted to global stats
   const simCounts = {};
   for (const track of tracks) {
-    simCounts[track.id] = stats.tracks[track.id].playCount;
+    simCounts[track.id] = stats.tracks[track.id]?.playCount ?? Math.round(average);
   }
 
+  const batch = [];
   for (let i = 0; i < batchSize && i < tracks.length * 2; i++) {
     const simAvg = Object.values(simCounts).reduce((a, b) => a + b, 0) / Object.keys(simCounts).length;
     const threshold = simAvg + tolerance;
@@ -99,15 +83,26 @@ export function generateBatch(tracks, batchSize = BATCH_SIZE) {
 }
 
 /**
- * Start playback with a batch: replaces current context with all tracks at once.
- * This effectively clears the previous queue since all tracks are set as the new context.
+ * Start playback with a batch: plays the first song, then adds the rest to queue.
+ * Used when no music is currently playing.
+ * Note: Spotify has no API to clear the queue. Previously queued items will play
+ * after the current song before our queued tracks.
  */
 export async function queueBatch(batch, deviceId, onProgress) {
   if (batch.length === 0) return;
 
-  const uris = batch.map((t) => t.uri);
-  await playTracks(uris, deviceId);
-  if (onProgress) onProgress(batch.length, batch.length);
+  await playTrack(batch[0].uri, deviceId);
+  if (onProgress) onProgress(1, batch.length);
+
+  for (let i = 1; i < batch.length; i++) {
+    await sleep(QUEUE_DELAY_MS);
+    try {
+      await addToQueue(batch[i].uri, deviceId);
+    } catch (err) {
+      console.error(`[TrueRandom] Failed to queue track ${i + 1}/${batch.length}: ${batch[i].name}`, err);
+    }
+    if (onProgress) onProgress(i + 1, batch.length);
+  }
 }
 
 /**

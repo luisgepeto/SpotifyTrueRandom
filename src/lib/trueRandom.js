@@ -1,4 +1,4 @@
-import { getGlobalStats, saveGlobalStats, getGlobalTolerance, getDebugMode } from './storage.js';
+import { getGlobalStats, getGlobalTolerance, getDebugMode } from './storage.js';
 
 export function selectNextTrack(tracks) {
   if (!tracks || tracks.length === 0) return null;
@@ -7,7 +7,7 @@ export function selectNextTrack(tracks) {
   const tolerance = getGlobalTolerance();
   const debugMode = getDebugMode();
 
-  // Sync stats with current playlist tracks
+  // Get counts for tracks that already exist in global stats
   const activeCounts = [];
   for (const track of tracks) {
     if (stats.tracks[track.id] !== undefined) {
@@ -19,18 +19,11 @@ export function selectNextTrack(tracks) {
     ? activeCounts.reduce((a, b) => a + b, 0) / activeCounts.length
     : 0;
 
-  // Initialize new tracks to average
+  // Use actual counts from global stats, defaulting new tracks to average for fair weighting
+  // (not persisted — reconciliation is the only thing that updates global stats)
+  const trackCounts = {};
   for (const track of tracks) {
-    if (stats.tracks[track.id] === undefined) {
-      stats.tracks[track.id] = {
-        playCount: Math.round(average),
-        name: track.name,
-        artist: track.artist,
-      };
-    } else {
-      stats.tracks[track.id].name = track.name;
-      stats.tracks[track.id].artist = track.artist;
-    }
+    trackCounts[track.id] = stats.tracks[track.id]?.playCount ?? Math.round(average);
   }
 
   const threshold = average + tolerance;
@@ -40,7 +33,7 @@ export function selectNextTrack(tracks) {
   const allTrackData = [];
 
   for (const track of tracks) {
-    const count = stats.tracks[track.id].playCount;
+    const count = trackCounts[track.id];
     const weight = Math.max(threshold - count, 0);
     const isCandidate = count < threshold;
 
@@ -59,8 +52,8 @@ export function selectNextTrack(tracks) {
   // Fallback: if no candidates, pick the track with lowest count
   let selected;
   if (candidates.length === 0) {
-    const minCount = Math.min(...tracks.map((t) => stats.tracks[t.id].playCount));
-    const fallbackCandidates = tracks.filter((t) => stats.tracks[t.id].playCount === minCount);
+    const minCount = Math.min(...tracks.map((t) => trackCounts[t.id]));
+    const fallbackCandidates = tracks.filter((t) => trackCounts[t.id] === minCount);
     selected = fallbackCandidates[Math.floor(Math.random() * fallbackCandidates.length)];
   } else {
     // Weighted random selection
@@ -96,14 +89,11 @@ export function selectNextTrack(tracks) {
       }))
     );
     console.log(
-      `%c► Selected: ${selected.name} (count: ${stats.tracks[selected.id].playCount})`,
+      `%c► Selected: ${selected.name} (count: ${trackCounts[selected.id]})`,
       'color: #1DB954; font-weight: bold;'
     );
     console.groupEnd();
   }
-
-  // Save any new track initializations (but don't increment count)
-  saveGlobalStats(stats);
 
   return selected;
 }

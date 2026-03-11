@@ -4,7 +4,7 @@ import { isAuthenticated } from '../lib/auth.js';
 import { getPlaylist, getAllPlaylistTracks } from '../lib/spotify.js';
 import { getTrackStats } from '../lib/trueRandom.js';
 import { getGlobalTolerance, clearGlobalStats, getDebugMode, setDebugMode } from '../lib/storage.js';
-import { enqueueTrueRandom, checkIsPlaying } from '../lib/playback.js';
+import { startTrueRandom, addToTrueRandomQueue, checkIsPlaying } from '../lib/playback.js';
 import { reconcileFromRecentlyPlayed } from '../lib/reconcile.js';
 import { BATCH_SIZE } from '../lib/queueManager.js';
 import TrackRow from '../components/TrackRow.jsx';
@@ -59,16 +59,24 @@ export default function PlaylistDetailPage() {
       setError(null);
       setQueueProgress({ queued: 0, total: BATCH_SIZE });
 
-      const result = await enqueueTrueRandom(
-        playlistId,
-        tracks,
-        (queued, total) => setQueueProgress({ queued, total }),
-      );
+      if (isPlaying) {
+        await addToTrueRandomQueue(
+          playlistId,
+          tracks,
+          (queued, total) => setQueueProgress({ queued, total }),
+        );
+      } else {
+        await startTrueRandom(
+          playlistId,
+          tracks,
+          (queued, total) => setQueueProgress({ queued, total }),
+        );
+      }
 
       setQueueProgress(null);
       setIsPlaying(true);
 
-      // Reload stats (new tracks may have been initialized)
+      // Reload stats
       const trackStats = getTrackStats(tracks);
       setStats(trackStats);
     } catch (err) {
