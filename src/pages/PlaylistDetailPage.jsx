@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { isAuthenticated } from '../lib/auth.js';
 import { getPlaylist, getAllPlaylistTracks, getDevices, pausePlayback, resumePlayback } from '../lib/spotify.js';
 import { getTrackStats } from '../lib/trueRandom.js';
-import { getPlaylistStats, savePlaylistStats, clearPlaylistStats, getDebugMode, setDebugMode } from '../lib/storage.js';
+import { getPlaylistStats, savePlaylistStats, clearPlaylistStats, getDebugMode, setDebugMode, getQueueSize, setQueueSize } from '../lib/storage.js';
 import { startTrueRandomPlayback, skipTrack, previousTrack, isPlaybackActive, getCurrentPlaylistId } from '../lib/playback.js';
 import TrackRow from '../components/TrackRow.jsx';
 import './PlaylistDetailPage.css';
@@ -17,6 +17,7 @@ export default function PlaylistDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [tolerance, setTolerance] = useState(10);
+  const [queueSize, setQueueSizeState] = useState(getQueueSize());
   const [debugMode, setDebugModeState] = useState(getDebugMode());
   const [sortField, setSortField] = useState('name');
   const [sortAsc, setSortAsc] = useState(true);
@@ -108,6 +109,12 @@ export default function PlaylistDetailPage() {
     const currentStats = getPlaylistStats(playlistId);
     currentStats.tolerance = val;
     savePlaylistStats(playlistId, currentStats);
+  };
+
+  const handleQueueSizeChange = (newSize) => {
+    const val = Math.max(1, parseInt(newSize) || 50);
+    setQueueSizeState(val);
+    setQueueSize(val);
   };
 
   const handleClearStats = () => {
@@ -235,6 +242,17 @@ export default function PlaylistDetailPage() {
               min="1"
               value={tolerance}
               onChange={(e) => handleToleranceChange(e.target.value)}
+              className="tolerance-input"
+            />
+          </label>
+          <label>
+            Queue size:
+            <input
+              type="number"
+              min="1"
+              max="50"
+              value={queueSize}
+              onChange={(e) => handleQueueSizeChange(e.target.value)}
               className="tolerance-input"
             />
           </label>

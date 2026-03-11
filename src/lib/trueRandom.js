@@ -1,6 +1,6 @@
 import { getPlaylistStats, savePlaylistStats, getDebugMode } from './storage.js';
 
-export function selectNextTrack(playlistId, tracks) {
+export function selectNextTrack(playlistId, tracks, { recordPlay = true, virtualCounts = {} } = {}) {
   if (!tracks || tracks.length === 0) return null;
 
   const stats = getPlaylistStats(playlistId);
@@ -36,12 +36,14 @@ export function selectNextTrack(playlistId, tracks) {
 
   const threshold = average + tolerance;
 
-  // Build candidates
+  // Build candidates using effective count (real + virtual) so that tracks
+  // already scheduled in the queue are treated as if they've been played that
+  // many additional times, making them less likely to be selected again.
   const candidates = [];
   const allTrackData = [];
 
   for (const track of tracks) {
-    const count = stats.tracks[track.id].playCount;
+    const count = stats.tracks[track.id].playCount + (virtualCounts[track.id] || 0);
     const weight = Math.max(threshold - count, 0);
     const isCandidate = count < threshold;
 
@@ -57,11 +59,15 @@ export function selectNextTrack(playlistId, tracks) {
     }
   }
 
-  // Fallback: if no candidates, pick the track with lowest count
+  // Fallback: if no candidates, pick the track with lowest effective count
   let selected;
   if (candidates.length === 0) {
-    const minCount = Math.min(...tracks.map((t) => stats.tracks[t.id].playCount));
-    const fallbackCandidates = tracks.filter((t) => stats.tracks[t.id].playCount === minCount);
+    const minCount = Math.min(
+      ...tracks.map((t) => stats.tracks[t.id].playCount + (virtualCounts[t.id] || 0))
+    );
+    const fallbackCandidates = tracks.filter(
+      (t) => stats.tracks[t.id].playCount + (virtualCounts[t.id] || 0) === minCount
+    );
     selected = fallbackCandidates[Math.floor(Math.random() * fallbackCandidates.length)];
   } else {
     // Weighted random selection
@@ -104,8 +110,10 @@ export function selectNextTrack(playlistId, tracks) {
   }
 
   // Increment play count
-  stats.tracks[selected.id].playCount += 1;
-  savePlaylistStats(playlistId, stats);
+  if (recordPlay) {
+    stats.tracks[selected.id].playCount += 1;
+    savePlaylistStats(playlistId, stats);
+  }
 
   return selected;
 }
