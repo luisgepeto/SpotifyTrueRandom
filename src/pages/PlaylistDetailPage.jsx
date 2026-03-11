@@ -67,6 +67,7 @@ export default function PlaylistDetailPage() {
 
       startTrueRandomPlayback(playlistId, tracks, activeDevice.id, (track) => {
         setCurrentTrack(track);
+        setIsPaused(false);
         const updatedStats = getTrackStats(playlistId, tracks);
         setStats(updatedStats);
       });
