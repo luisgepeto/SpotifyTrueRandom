@@ -86,7 +86,10 @@ export async function handleCallback(code) {
 
 export async function refreshAccessToken() {
   const tokens = getTokens();
-  if (!tokens?.refreshToken) throw new Error('No refresh token available');
+  if (!tokens?.refreshToken) {
+    clearTokens();
+    throw new Error('No refresh token available');
+  }
 
   const response = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',

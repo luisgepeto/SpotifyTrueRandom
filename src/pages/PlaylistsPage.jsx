@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { isAuthenticated } from '../lib/auth.js';
+import { isAuthenticated, logout } from '../lib/auth.js';
 import { getPlaylists } from '../lib/spotify.js';
 import { getGlobalTolerance, saveGlobalTolerance } from '../lib/storage.js';
 import PlaylistCard from '../components/PlaylistCard.jsx';
@@ -28,6 +28,11 @@ export default function PlaylistsPage() {
         );
         setPlaylists(sorted);
       } catch (err) {
+        if (!isAuthenticated()) {
+          logout();
+          navigate('/');
+          return;
+        }
         setError(err.message);
       } finally {
         setLoading(false);

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { isAuthenticated } from '../lib/auth.js';
+import { isAuthenticated, logout } from '../lib/auth.js';
 import { getPlaylist, getAllPlaylistTracks } from '../lib/spotify.js';
 import { getTrackStats } from '../lib/trueRandom.js';
 import { getGlobalTolerance, clearGlobalStats, getDebugMode, setDebugMode } from '../lib/storage.js';
@@ -35,11 +35,16 @@ export default function PlaylistDetailPage() {
       const trackStats = getTrackStats(allTracks);
       setStats(trackStats);
     } catch (err) {
+      if (!isAuthenticated()) {
+        logout();
+        navigate('/');
+        return;
+      }
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [playlistId]);
+  }, [playlistId, navigate]);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -80,6 +85,11 @@ export default function PlaylistDetailPage() {
       const trackStats = getTrackStats(tracks);
       setStats(trackStats);
     } catch (err) {
+      if (!isAuthenticated()) {
+        logout();
+        navigate('/');
+        return;
+      }
       setError(err.message);
       setQueueProgress(null);
     }
