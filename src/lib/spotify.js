@@ -59,16 +59,20 @@ export async function getPlaylistTracks(playlistId, limit = 100, offset = 0) {
 
 export async function getAllPlaylistTracks(playlistId) {
   const tracks = [];
+  const seen = new Set();
   let offset = 0;
   const limit = 100;
 
   while (true) {
     const data = await getPlaylistTracks(playlistId, limit, offset);
     const validTracks = data.items
-      .filter((item) => item.track && item.track.id)
-      .map((item, index) => ({
+      .filter((item) => {
+        if (!item.track || !item.track.id || seen.has(item.track.id)) return false;
+        seen.add(item.track.id);
+        return true;
+      })
+      .map((item) => ({
         id: item.track.id,
-        playlistPosition: offset + index,
         name: item.track.name,
         artist: item.track.artists.map((a) => a.name).join(', '),
         album: item.track.album.name,

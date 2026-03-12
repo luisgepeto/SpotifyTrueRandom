@@ -214,7 +214,7 @@ export default function PlaylistDetailPage() {
       <div className="tracks-scroll">
         {sortedTracks.map((track) => (
           <TrackRow
-            key={`${track.id}-${track.playlistPosition}`}
+            key={track.id}
             track={track}
             average={stats?.average ?? 0}
             tolerance={getGlobalTolerance()}

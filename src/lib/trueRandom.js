@@ -100,14 +100,21 @@ export function selectNextTrack(tracks) {
 
 export function getTrackStats(tracks) {
   const stats = getGlobalStats();
+  const seen = new Set();
 
-  const trackStats = tracks.map((track) => {
-    const data = stats.tracks[track.id];
-    return {
-      ...track,
-      playCount: data?.playCount ?? 0,
-    };
-  });
+  const trackStats = tracks
+    .filter((track) => {
+      if (seen.has(track.id)) return false;
+      seen.add(track.id);
+      return true;
+    })
+    .map((track) => {
+      const data = stats.tracks[track.id];
+      return {
+        ...track,
+        playCount: data?.playCount ?? 0,
+      };
+    });
 
   const counts = trackStats.map((t) => t.playCount);
   const average = counts.length > 0 ? counts.reduce((a, b) => a + b, 0) / counts.length : 0;
