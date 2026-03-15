@@ -22,6 +22,7 @@ export default function PlaylistDetailPage({ userStats, onRefreshStats }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [queueProgress, setQueueProgress] = useState(null);
   const [cachedAt, setCachedAt] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loadData = useCallback(async () => {
     try {
@@ -116,15 +117,21 @@ export default function PlaylistDetailPage({ userStats, onRefreshStats }) {
     }
   };
 
-  const sortedTracks = stats?.tracks ? [...stats.tracks].sort((a, b) => {
-    let cmp;
-    if (sortField === 'playCount') {
-      cmp = a.playCount - b.playCount;
-    } else {
-      cmp = a.name.localeCompare(b.name);
-    }
-    return sortAsc ? cmp : -cmp;
-  }) : [];
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+
+  const sortedTracks = stats?.tracks ? [...stats.tracks]
+    .filter((t) => !normalizedQuery
+      || t.name.toLowerCase().includes(normalizedQuery)
+      || (t.artist || '').toLowerCase().includes(normalizedQuery))
+    .sort((a, b) => {
+      let cmp;
+      if (sortField === 'playCount') {
+        cmp = a.playCount - b.playCount;
+      } else {
+        cmp = a.name.localeCompare(b.name);
+      }
+      return sortAsc ? cmp : -cmp;
+    }) : [];
 
   if (loading) return <div className="loading">Loading playlist...</div>;
   if (error && !tracks.length) return <div className="error">Error: {error}</div>;
@@ -199,6 +206,15 @@ export default function PlaylistDetailPage({ userStats, onRefreshStats }) {
             <span className="stat-value">{stats?.max ?? 0}</span>
           </div>
         </div>
+
+        <input
+          className="tracks-search"
+          type="search"
+          placeholder="Search songs..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          aria-label="Search songs"
+        />
 
         <div className="tracks-header">
           <span className="col-name sortable" onClick={() => handleSort('name')}>

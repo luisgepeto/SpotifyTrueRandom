@@ -96,6 +96,28 @@
   color: #666;
 }
 
+.tracks-search {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  background: var(--bg-secondary, #282828);
+  border: 1px solid #404040;
+  border-radius: 4px;
+  color: var(--text-primary, #fff);
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.tracks-search::placeholder {
+  color: #b3b3b3;
+}
+
+.tracks-search:focus {
+  outline: none;
+  border-color: var(--accent, #1db954);
+}
+
 .detail-header h2 {
   margin: 0;
 }
