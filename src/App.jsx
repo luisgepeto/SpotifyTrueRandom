@@ -83,7 +83,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<LoginPage />} />
             <Route path="/playlists" element={
-              <PlaylistsPage tolerance={userStats.tolerance} />
+              <PlaylistsPage tolerance={userStats.tolerance} userId={user?.id} />
             } />
             <Route path="/playlist/:id" element={
               <PlaylistDetailPage

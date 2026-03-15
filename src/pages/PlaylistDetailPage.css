@@ -90,6 +90,12 @@
   color: #b3b3b3;
 }
 
+.playlist-cache-time {
+  margin: 0.25rem 0 0;
+  font-size: 0.75rem;
+  color: #666;
+}
+
 .detail-header h2 {
   margin: 0;
 }

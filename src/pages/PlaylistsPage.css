@@ -75,6 +75,12 @@
   color: #666;
 }
 
+.cache-hint {
+  font-size: 0.8rem;
+  color: #666;
+  margin-left: auto;
+}
+
 .playlists-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));

@@ -10,6 +10,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.WEB_PORT || '3457', 10);
 const DIST_DIR = path.join(__dirname, 'dist');
 const DATA_DIR = path.join(__dirname, 'data');
+const CACHE_DIR = path.join(DATA_DIR, 'cache');
 const SSL_KEY = path.join(__dirname, 'key.pem');
 const SSL_CERT = path.join(__dirname, 'cert.pem');
 
@@ -47,6 +48,15 @@ const sslOptions = {
 const server = https.createServer(sslOptions, (req, res) => {
   const url = new URL(req.url, `https://localhost:${PORT}`);
   let pathname = url.pathname;
+
+  // Serve cache files (playlist cache JSON)
+  if (pathname.startsWith('/cache/')) {
+    const cacheFile = path.join(CACHE_DIR, pathname.replace('/cache/', ''));
+    if (serveFile(res, cacheFile)) return;
+    res.writeHead(404, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+    res.end('Not found');
+    return;
+  }
 
   // Serve data files (user stats JSON)
   if (pathname.startsWith('/data/')) {

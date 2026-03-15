@@ -26,3 +26,25 @@ export async function fetchUserStats(userId) {
     initialAuthAt: data.initialAuthAt,
   };
 }
+
+/**
+ * Fetch cached playlists for a user from the server.
+ * Returns { playlists: [...], cachedAt: string } or null if not cached.
+ */
+export async function fetchCachedPlaylists(userId) {
+  const url = `${STATS_BASE_URL}/cache/user_${userId}_playlists.json`;
+  const response = await fetch(url);
+  if (!response.ok) return null;
+  return response.json();
+}
+
+/**
+ * Fetch cached playlist detail (metadata + tracks) from the server.
+ * Returns { id, name, images, tracks: [...], cachedAt: string } or null if not cached.
+ */
+export async function fetchCachedPlaylist(playlistId) {
+  const url = `${STATS_BASE_URL}/cache/playlist_${playlistId}.json`;
+  const response = await fetch(url);
+  if (!response.ok) return null;
+  return response.json();
+}

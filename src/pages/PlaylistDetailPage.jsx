@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { isAuthenticated, logout } from '../lib/auth.js';
 import { getPlaylist, getAllPlaylistTracks } from '../lib/spotify.js';
+import { fetchCachedPlaylist } from '../lib/statsApi.js';
 import { getTrackStats } from '../lib/trueRandom.js';
 import { startTrueRandom, addToTrueRandomQueue, checkIsPlaying } from '../lib/playback.js';
 import { BATCH_SIZE } from '../lib/queueManager.js';
@@ -20,13 +21,26 @@ export default function PlaylistDetailPage({ userStats, onRefreshStats }) {
   const [sortAsc, setSortAsc] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [queueProgress, setQueueProgress] = useState(null);
+  const [cachedAt, setCachedAt] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
-      const [playlistData, allTracks] = await Promise.all([
-        getPlaylist(playlistId),
-        getAllPlaylistTracks(playlistId),
-      ]);
+      let playlistData, allTracks;
+
+      // Try server cache first
+      const cached = await fetchCachedPlaylist(playlistId);
+      if (cached?.tracks) {
+        playlistData = cached;
+        allTracks = cached.tracks;
+        setCachedAt(cached.cachedAt);
+      } else {
+        // Fallback to Spotify API
+        [playlistData, allTracks] = await Promise.all([
+          getPlaylist(playlistId),
+          getAllPlaylistTracks(playlistId),
+        ]);
+      }
+
       setPlaylist(playlistData);
       setTracks(allTracks);
       const trackStats = getTrackStats(allTracks, userStats);
@@ -132,6 +146,9 @@ export default function PlaylistDetailPage({ userStats, onRefreshStats }) {
             <div className="playlist-meta">
               <h2 className="playlist-name">{playlist?.name ?? 'Playlist'}</h2>
               <p className="playlist-track-count">{tracks.length} songs</p>
+              {cachedAt && (
+                <p className="playlist-cache-time">Cache: {new Date(cachedAt).toLocaleString()}</p>
+              )}
             </div>
           </div>
           <div className="detail-actions">

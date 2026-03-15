@@ -1,26 +1,6 @@
 import { getValidToken, refreshAccessToken } from './auth.js';
 
 const BASE_URL = 'https://api.spotify.com/v1';
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
-
-function cacheGet(key) {
-  try {
-    const raw = localStorage.getItem(`sp_cache_${key}`);
-    if (!raw) return null;
-    const { data, ts } = JSON.parse(raw);
-    if (Date.now() - ts > CACHE_TTL) {
-      localStorage.removeItem(`sp_cache_${key}`);
-      return null;
-    }
-    return data;
-  } catch { return null; }
-}
-
-function cacheSet(key, data) {
-  try {
-    localStorage.setItem(`sp_cache_${key}`, JSON.stringify({ data, ts: Date.now() }));
-  } catch { /* storage full — ignore */ }
-}
 
 async function getAccessToken() {
   let token = getValidToken();
@@ -79,11 +59,7 @@ export async function getPlaylists(limit = 50, offset = 0) {
 }
 
 export async function getPlaylist(playlistId) {
-  const cached = cacheGet(`pl_${playlistId}`);
-  if (cached) return cached;
-  const data = await spotifyFetch(`/playlists/${playlistId}`);
-  cacheSet(`pl_${playlistId}`, data);
-  return data;
+  return spotifyFetch(`/playlists/${playlistId}`);
 }
 
 export async function getPlaylistTracks(playlistId, limit = 100, offset = 0) {
@@ -91,9 +67,6 @@ export async function getPlaylistTracks(playlistId, limit = 100, offset = 0) {
 }
 
 export async function getAllPlaylistTracks(playlistId) {
-  const cached = cacheGet(`plt_${playlistId}`);
-  if (cached) return cached;
-
   const tracks = [];
   const seen = new Set();
   let offset = 0;
@@ -123,7 +96,6 @@ export async function getAllPlaylistTracks(playlistId) {
     offset += limit;
   }
 
-  cacheSet(`plt_${playlistId}`, tracks);
   return tracks;
 }
 

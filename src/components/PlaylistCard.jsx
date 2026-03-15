@@ -1,8 +1,8 @@
 import './PlaylistCard.css';
 
 export default function PlaylistCard({ playlist, onClick }) {
-  const image = playlist.images?.[0]?.url;
-  const trackCount = playlist.tracks?.total ?? 0;
+  const image = playlist.image || playlist.images?.[0]?.url;
+  const trackCount = playlist.trackCount ?? playlist.tracks?.total ?? 0;
 
   return (
     <div className="playlist-card" onClick={onClick}>

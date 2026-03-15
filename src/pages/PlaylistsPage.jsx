@@ -2,15 +2,17 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isAuthenticated, logout } from '../lib/auth.js';
 import { getPlaylists } from '../lib/spotify.js';
+import { fetchCachedPlaylists } from '../lib/statsApi.js';
 import PlaylistCard from '../components/PlaylistCard.jsx';
 import './PlaylistsPage.css';
 
-export default function PlaylistsPage({ tolerance }) {
+export default function PlaylistsPage({ tolerance, userId }) {
   const navigate = useNavigate();
   const [playlists, setPlaylists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [cachedAt, setCachedAt] = useState(null);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -20,6 +22,19 @@ export default function PlaylistsPage({ tolerance }) {
 
     async function loadPlaylists() {
       try {
+        // Try server cache first
+        if (userId) {
+          const cached = await fetchCachedPlaylists(userId);
+          if (cached?.playlists) {
+            const sorted = cached.playlists.sort((a, b) => a.name.localeCompare(b.name));
+            setPlaylists(sorted);
+            setCachedAt(cached.cachedAt);
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Fallback to Spotify API
         const data = await getPlaylists(50);
         const sorted = (data.items || []).sort((a, b) =>
           a.name.localeCompare(b.name)
@@ -38,7 +53,7 @@ export default function PlaylistsPage({ tolerance }) {
     }
 
     loadPlaylists();
-  }, [navigate]);
+  }, [navigate, userId]);
 
   if (loading) return <div className="loading">Loading playlists...</div>;
   if (error) return <div className="error">Error: {error}</div>;
@@ -65,6 +80,9 @@ export default function PlaylistsPage({ tolerance }) {
         />
         <div className="tolerance-row">
           <span className="tolerance-hint">Tolerance: <strong>{tolerance}</strong></span>
+          {cachedAt && (
+            <span className="cache-hint">Cache: {new Date(cachedAt).toLocaleString()}</span>
+          )}
         </div>
       </div>
       <div className="playlists-grid">
