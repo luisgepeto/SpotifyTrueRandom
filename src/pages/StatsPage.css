@@ -117,3 +117,22 @@
   text-align: center;
   color: #b3b3b3;
 }
+
+.reconcile-log {
+  background: #0d0d0d;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-top: 0.5rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.log-content {
+  margin: 0;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: #b3b3b3;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

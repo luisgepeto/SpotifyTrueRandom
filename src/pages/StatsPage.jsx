@@ -1,15 +1,25 @@
 import { useNavigate } from 'react-router-dom';
 import { isAuthenticated } from '../lib/auth.js';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import './StatsPage.css';
 
 export default function StatsPage({ userStats, userId }) {
   const navigate = useNavigate();
+  const [reconcileLog, setReconcileLog] = useState(null);
+  const [logLoading, setLogLoading] = useState(true);
 
   useEffect(() => {
     if (!isAuthenticated()) {
       navigate('/');
+      return;
     }
+
+    const baseUrl = import.meta.env.VITE_STATS_BASE_URL || window.location.origin;
+    fetch(`${baseUrl}/reconcile-log`)
+      .then((r) => r.text())
+      .then(setReconcileLog)
+      .catch(() => setReconcileLog('Failed to load reconciliation log.'))
+      .finally(() => setLogLoading(false));
   }, [navigate]);
 
   const tracks = userStats?.tracks || {};
@@ -99,6 +109,15 @@ export default function StatsPage({ userStats, userId }) {
             <div className="stats-empty">No tracked songs yet. Stats will appear after the server reconciles your listening history.</div>
           )}
         </div>
+      </div>
+
+      <h3>Reconciliation Log</h3>
+      <div className="reconcile-log">
+        {logLoading ? (
+          <div className="stats-empty">Loading log...</div>
+        ) : (
+          <pre className="log-content">{reconcileLog}</pre>
+        )}
       </div>
     </div>
   );

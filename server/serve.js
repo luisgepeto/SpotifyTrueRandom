@@ -57,6 +57,21 @@ const server = https.createServer(sslOptions, (req, res) => {
     return;
   }
 
+  // Serve reconciliation log (last 200 lines)
+  if (pathname === '/reconcile-log') {
+    const logFile = path.join(__dirname, 'reconcile.log');
+    if (!fs.existsSync(logFile)) {
+      res.writeHead(200, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+      res.end('No reconciliation log yet.');
+      return;
+    }
+    const lines = fs.readFileSync(logFile, 'utf-8').split('\n');
+    const tail = lines.slice(-200).join('\n');
+    res.writeHead(200, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+    res.end(tail);
+    return;
+  }
+
   // Serve static files from dist/
   if (pathname === '/') pathname = '/index.html';
   const distFile = path.join(DIST_DIR, pathname);
