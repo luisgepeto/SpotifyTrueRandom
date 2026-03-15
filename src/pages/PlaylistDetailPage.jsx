@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { isAuthenticated, logout } from '../lib/auth.js';
 import { getPlaylist, getAllPlaylistTracks } from '../lib/spotify.js';
@@ -58,30 +58,37 @@ export default function PlaylistDetailPage({ userStats, userId, onRefreshStats }
     }
   }, [playlistId, navigate, userStats]);
 
+  const tracksRef = useRef(tracks);
+  tracksRef.current = tracks;
+
   useEffect(() => {
     if (!isAuthenticated()) {
       navigate('/');
       return;
     }
 
-    // Refresh stats from server, then load playlist data
     if (onRefreshStats) onRefreshStats();
     loadData();
     checkIsPlaying().then(setIsPlaying);
+  }, [navigate, loadData]);
 
-    // Poll for updated stats every 5 minutes
+  // Separate polling effect — uses ref to avoid re-triggering on tracks change
+  useEffect(() => {
+    if (!userId) return;
+
     const pollInterval = setInterval(async () => {
-      if (!userId) return;
       try {
         const freshStats = await fetchUserStats(userId);
         if (onRefreshStats) onRefreshStats();
-        const trackStats = getTrackStats(tracks, freshStats);
-        setStats(trackStats);
+        if (tracksRef.current.length > 0) {
+          const trackStats = getTrackStats(tracksRef.current, freshStats);
+          setStats(trackStats);
+        }
       } catch { /* silent */ }
     }, 5 * 60 * 1000);
 
     return () => clearInterval(pollInterval);
-  }, [navigate, loadData, userId, tracks]);
+  }, [userId]);
 
   const handleEnqueue = async () => {
     try {
