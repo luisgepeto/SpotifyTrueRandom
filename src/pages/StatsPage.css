@@ -72,7 +72,7 @@
 
 .stats-table-header {
   display: grid;
-  grid-template-columns: 2fr 2fr 100px 60px;
+  grid-template-columns: 2fr 2fr 150px 60px;
   padding: 0.75rem 1rem;
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -82,7 +82,7 @@
 
 .stats-table-row {
   display: grid;
-  grid-template-columns: 2fr 2fr 100px 60px;
+  grid-template-columns: 2fr 2fr 150px 60px;
   padding: 0.6rem 1rem;
   font-size: 0.85rem;
   border-bottom: 1px solid #282828;

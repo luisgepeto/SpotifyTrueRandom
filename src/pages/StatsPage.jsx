@@ -118,7 +118,7 @@ export default function StatsPage({ userStats, userId }) {
             <div key={track.id} className="stats-table-row">
               <span className="col-song">{track.name || track.id}</span>
               <span className="col-artist">{track.artist || '—'}</span>
-              <span className="col-last-played">{track.lastPlayedAt ? new Date(track.lastPlayedAt).toLocaleDateString() : '—'}</span>
+              <span className="col-last-played">{track.lastPlayedAt ? new Date(track.lastPlayedAt).toLocaleString() : '—'}</span>
               <span className="col-plays">{track.playCount}</span>
             </div>
           ))}
