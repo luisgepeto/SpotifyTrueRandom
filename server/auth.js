@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import http from 'node:http';
+import https from 'node:https';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -11,7 +11,11 @@ const DATA_DIR = path.join(__dirname, 'data');
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
 const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 const PORT = parseInt(process.env.PORT || '3456', 10);
-const REDIRECT_URI = `http://localhost:${PORT}/callback`;
+const HOST = process.env.HOST || '192.168.50.52';
+const REDIRECT_URI = `https://${HOST}:${PORT}/callback`;
+
+const SSL_KEY = path.join(__dirname, 'key.pem');
+const SSL_CERT = path.join(__dirname, 'cert.pem');
 
 const SCOPES = [
   'user-read-recently-played',
@@ -36,8 +40,13 @@ if (!fs.existsSync(DATA_DIR)) {
 
 const state = crypto.randomBytes(16).toString('hex');
 
-const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://localhost:${PORT}`);
+const sslOptions = {
+  key: fs.readFileSync(SSL_KEY),
+  cert: fs.readFileSync(SSL_CERT),
+};
+
+const server = https.createServer(sslOptions, async (req, res) => {
+  const url = new URL(req.url, `https://${HOST}:${PORT}`);
 
   if (url.pathname === '/callback') {
     const code = url.searchParams.get('code');
