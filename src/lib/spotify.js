@@ -11,7 +11,8 @@ async function getAccessToken() {
   return token;
 }
 
-async function spotifyFetch(endpoint, options = {}) {
+async function spotifyFetch(endpoint, options = {}, _retries = 0) {
+  const MAX_RETRIES = 5;
   const token = await getAccessToken();
   const response = await fetch(`${BASE_URL}${endpoint}`, {
     ...options,
@@ -22,7 +23,6 @@ async function spotifyFetch(endpoint, options = {}) {
   });
 
   if (response.status === 401) {
-    // Token expired, try refresh once
     const newTokens = await refreshAccessToken();
     const retryResponse = await fetch(`${BASE_URL}${endpoint}`, {
       ...options,
@@ -34,6 +34,15 @@ async function spotifyFetch(endpoint, options = {}) {
     if (!retryResponse.ok) throw new Error(`Spotify API error: ${retryResponse.status}`);
     if (retryResponse.status === 204) return null;
     return retryResponse.json();
+  }
+
+  if (response.status === 429) {
+    if (_retries >= MAX_RETRIES) throw new Error('Spotify rate limit exceeded after retries');
+    const retryAfter = parseInt(response.headers.get('Retry-After') || '1', 10);
+    const delay = Math.max(retryAfter, 1) * 1000;
+    console.warn(`Rate limited (429). Retrying in ${delay}ms (attempt ${_retries + 1}/${MAX_RETRIES})`);
+    await new Promise((r) => setTimeout(r, delay));
+    return spotifyFetch(endpoint, options, _retries + 1);
   }
 
   if (!response.ok) throw new Error(`Spotify API error: ${response.status}`);
