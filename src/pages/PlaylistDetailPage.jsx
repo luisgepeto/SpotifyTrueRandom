@@ -68,7 +68,20 @@ export default function PlaylistDetailPage({ userStats, userId, onRefreshStats }
     if (onRefreshStats) onRefreshStats();
     loadData();
     checkIsPlaying().then(setIsPlaying);
-  }, [navigate, loadData]);
+
+    // Poll for updated stats every 5 minutes
+    const pollInterval = setInterval(async () => {
+      if (!userId) return;
+      try {
+        const freshStats = await fetchUserStats(userId);
+        if (onRefreshStats) onRefreshStats();
+        const trackStats = getTrackStats(tracks, freshStats);
+        setStats(trackStats);
+      } catch { /* silent */ }
+    }, 5 * 60 * 1000);
+
+    return () => clearInterval(pollInterval);
+  }, [navigate, loadData, userId, tracks]);
 
   const handleEnqueue = async () => {
     try {
