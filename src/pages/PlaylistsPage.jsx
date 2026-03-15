@@ -2,17 +2,15 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isAuthenticated, logout } from '../lib/auth.js';
 import { getPlaylists } from '../lib/spotify.js';
-import { getGlobalTolerance, saveGlobalTolerance } from '../lib/storage.js';
 import PlaylistCard from '../components/PlaylistCard.jsx';
 import './PlaylistsPage.css';
 
-export default function PlaylistsPage() {
+export default function PlaylistsPage({ tolerance }) {
   const navigate = useNavigate();
   const [playlists, setPlaylists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [tolerance, setTolerance] = useState(getGlobalTolerance());
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -42,12 +40,6 @@ export default function PlaylistsPage() {
     loadPlaylists();
   }, [navigate]);
 
-  const handleToleranceChange = (newTolerance) => {
-    const val = Math.max(1, parseInt(newTolerance) || 10);
-    setTolerance(val);
-    saveGlobalTolerance(val);
-  };
-
   if (loading) return <div className="loading">Loading playlists...</div>;
   if (error) return <div className="error">Error: {error}</div>;
 
@@ -72,17 +64,7 @@ export default function PlaylistsPage() {
           aria-label="Search playlists"
         />
         <div className="tolerance-row">
-          <label>
-            Tolerance:
-            <input
-              type="number"
-              min="1"
-              value={tolerance}
-              onChange={(e) => handleToleranceChange(e.target.value)}
-              className="tolerance-input"
-            />
-          </label>
-          <span className="tolerance-hint">Max play count variation allowed between songs</span>
+          <span className="tolerance-hint">Tolerance: <strong>{tolerance}</strong></span>
         </div>
       </div>
       <div className="playlists-grid">

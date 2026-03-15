@@ -139,8 +139,3 @@ export async function getQueue() {
   return spotifyFetch('/me/player/queue');
 }
 
-export async function getRecentlyPlayed(limit = 50, after = null) {
-  let endpoint = `/me/player/recently-played?limit=${limit}`;
-  if (after) endpoint += `&after=${after}`;
-  return spotifyFetch(endpoint);
-}

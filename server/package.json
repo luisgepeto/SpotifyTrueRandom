@@ -6,7 +6,8 @@
   "scripts": {
     "auth": "node auth.js",
     "reconcile": "node reconcile.js",
-    "start": "node cron.js"
+    "start": "node cron.js",
+    "serve": "node serve.js"
   },
   "dependencies": {
     "dotenv": "^16.4.0",

@@ -1,5 +1,4 @@
 import { addToQueue, playTrack, getQueue } from './spotify.js';
-import { getGlobalStats, getGlobalTolerance, getDebugMode } from './storage.js';
 
 const BATCH_SIZE = 30;
 const QUEUE_DELAY_MS = 350;
@@ -28,23 +27,18 @@ async function getQueueCounts() {
 }
 
 /**
- * Generate a TrueRandom-ordered batch of tracks using global stats + current Spotify queue.
- * Reads the real queue so songs already queued (by our app or manually) count toward sim totals.
- * Does NOT modify global stats — simulation only.
+ * Generate a TrueRandom-ordered batch of tracks using server stats + current Spotify queue.
+ * @param {Array} tracks - playlist tracks
+ * @param {Object} stats - { tracks: { [id]: { playCount } } } from server
+ * @param {number} tolerance - tolerance value from server
+ * @param {number} batchSize - number of songs to generate
  */
-export async function generateBatch(tracks, batchSize = BATCH_SIZE) {
+export async function generateBatch(tracks, stats, tolerance = 10, batchSize = BATCH_SIZE) {
   if (!tracks || tracks.length === 0) return [];
 
-  const stats = getGlobalStats();
-  const tolerance = getGlobalTolerance();
-  const debugMode = getDebugMode();
   const queueCounts = await getQueueCounts();
 
-  if (debugMode && Object.keys(queueCounts).length > 0) {
-    console.log(`[TrueRandom] Current queue has ${Object.values(queueCounts).reduce((a, b) => a + b, 0)} songs from ${Object.keys(queueCounts).length} unique tracks`);
-  }
-
-  // Get counts for tracks that already exist in global stats (real + queued)
+  // Get counts for tracks that already exist in stats (real + queued)
   const activeCounts = [];
   for (const track of tracks) {
     if (stats.tracks[track.id] !== undefined) {
@@ -57,7 +51,7 @@ export async function generateBatch(tracks, batchSize = BATCH_SIZE) {
     : 0;
 
   // Build simulation counts — real stats + queue counts.
-  // New tracks start at average for fair weighting. NOT persisted to global stats.
+  // New tracks start at average for fair weighting.
   const simCounts = {};
   for (const track of tracks) {
     const realCount = stats.tracks[track.id]?.playCount ?? Math.round(average);
@@ -106,11 +100,6 @@ export async function generateBatch(tracks, batchSize = BATCH_SIZE) {
     batch.push(selected);
     usedIds.add(selected.id);
     simCounts[selected.id] += 1;
-  }
-
-  if (debugMode) {
-    console.log(`[TrueRandom] Generated batch of ${batch.length} songs`);
-    console.log(batch.map((t, i) => `  ${i + 1}. ${t.name} - ${t.artist}`).join('\n'));
   }
 
   return batch;

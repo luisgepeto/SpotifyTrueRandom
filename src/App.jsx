@@ -2,18 +2,14 @@ import { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { isAuthenticated, handleCallback } from './lib/auth.js';
 import { getProfile } from './lib/spotify.js';
-import { reconcileFromRecentlyPlayed } from './lib/reconcile.js';
+import { fetchUserStats } from './lib/statsApi.js';
 import Navbar from './components/Navbar.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import PlaylistsPage from './pages/PlaylistsPage.jsx';
 import PlaylistDetailPage from './pages/PlaylistDetailPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 
-const RECONCILE_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
-
 // Handle OAuth callback before React renders.
-// Spotify redirects to http://127.0.0.1:5173/?code=xxx
-// We intercept the code param, exchange it for tokens, then clean the URL.
 function useOAuthCallback() {
   const [ready, setReady] = useState(false);
 
@@ -51,23 +47,26 @@ function useOAuthCallback() {
 export default function App() {
   const ready = useOAuthCallback();
   const [user, setUser] = useState(null);
+  const [userStats, setUserStats] = useState({ tracks: {}, tolerance: 10 });
+
+  const refreshStats = async (userId) => {
+    try {
+      const stats = await fetchUserStats(userId);
+      setUserStats(stats);
+    } catch (err) {
+      console.error('Failed to fetch user stats:', err);
+    }
+  };
 
   useEffect(() => {
     if (!ready) return;
     if (isAuthenticated()) {
       getProfile()
-        .then(setUser)
+        .then((profile) => {
+          setUser(profile);
+          refreshStats(profile.id);
+        })
         .catch(() => setUser(null));
-
-      // Reconcile on app load
-      reconcileFromRecentlyPlayed();
-
-      // Periodic reconciliation while app is open
-      const interval = setInterval(() => {
-        reconcileFromRecentlyPlayed();
-      }, RECONCILE_INTERVAL_MS);
-
-      return () => clearInterval(interval);
     }
   }, [ready]);
 
@@ -82,8 +81,16 @@ export default function App() {
         <main className="main-content">
           <Routes>
             <Route path="/" element={<LoginPage />} />
-            <Route path="/playlists" element={<PlaylistsPage />} />
-            <Route path="/playlist/:id" element={<PlaylistDetailPage />} />
+            <Route path="/playlists" element={
+              <PlaylistsPage tolerance={userStats.tolerance} />
+            } />
+            <Route path="/playlist/:id" element={
+              <PlaylistDetailPage
+                userStats={userStats}
+                userId={user?.id}
+                onRefreshStats={() => user && refreshStats(user.id)}
+              />
+            } />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </main>

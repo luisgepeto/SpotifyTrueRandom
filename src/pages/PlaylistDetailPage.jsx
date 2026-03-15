@@ -3,14 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { isAuthenticated, logout } from '../lib/auth.js';
 import { getPlaylist, getAllPlaylistTracks } from '../lib/spotify.js';
 import { getTrackStats } from '../lib/trueRandom.js';
-import { getGlobalTolerance, clearGlobalStats, getDebugMode, setDebugMode } from '../lib/storage.js';
 import { startTrueRandom, addToTrueRandomQueue, checkIsPlaying } from '../lib/playback.js';
-import { reconcileFromRecentlyPlayed } from '../lib/reconcile.js';
 import { BATCH_SIZE } from '../lib/queueManager.js';
 import TrackRow from '../components/TrackRow.jsx';
 import './PlaylistDetailPage.css';
 
-export default function PlaylistDetailPage() {
+export default function PlaylistDetailPage({ userStats, onRefreshStats }) {
   const { id: playlistId } = useParams();
   const navigate = useNavigate();
   const [playlist, setPlaylist] = useState(null);
@@ -18,7 +16,6 @@ export default function PlaylistDetailPage() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [debugMode, setDebugModeState] = useState(getDebugMode());
   const [sortField, setSortField] = useState('name');
   const [sortAsc, setSortAsc] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -32,7 +29,7 @@ export default function PlaylistDetailPage() {
       ]);
       setPlaylist(playlistData);
       setTracks(allTracks);
-      const trackStats = getTrackStats(allTracks);
+      const trackStats = getTrackStats(allTracks, userStats);
       setStats(trackStats);
     } catch (err) {
       if (!isAuthenticated()) {
@@ -44,7 +41,7 @@ export default function PlaylistDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [playlistId, navigate]);
+  }, [playlistId, navigate, userStats]);
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -52,10 +49,9 @@ export default function PlaylistDetailPage() {
       return;
     }
 
-    // Reconcile on mount, then load data
-    reconcileFromRecentlyPlayed().finally(() => loadData());
-
-    // Check if Spotify is currently playing
+    // Refresh stats from server, then load playlist data
+    if (onRefreshStats) onRefreshStats();
+    loadData();
     checkIsPlaying().then(setIsPlaying);
   }, [navigate, loadData]);
 
@@ -66,14 +62,16 @@ export default function PlaylistDetailPage() {
 
       if (isPlaying) {
         await addToTrueRandomQueue(
-          playlistId,
           tracks,
+          userStats,
+          userStats.tolerance,
           (queued, total) => setQueueProgress({ queued, total }),
         );
       } else {
         await startTrueRandom(
-          playlistId,
           tracks,
+          userStats,
+          userStats.tolerance,
           (queued, total) => setQueueProgress({ queued, total }),
         );
       }
@@ -81,8 +79,8 @@ export default function PlaylistDetailPage() {
       setQueueProgress(null);
       setIsPlaying(true);
 
-      // Reload stats
-      const trackStats = getTrackStats(tracks);
+      // Reload stats display
+      const trackStats = getTrackStats(tracks, userStats);
       setStats(trackStats);
     } catch (err) {
       if (!isAuthenticated()) {
@@ -93,19 +91,6 @@ export default function PlaylistDetailPage() {
       setError(err.message);
       setQueueProgress(null);
     }
-  };
-
-  const handleClearStats = () => {
-    if (window.confirm('Are you sure you want to clear all play statistics? This cannot be undone.')) {
-      clearGlobalStats();
-      loadData();
-    }
-  };
-
-  const handleDebugToggle = () => {
-    const newVal = !debugMode;
-    setDebugModeState(newVal);
-    setDebugMode(newVal);
   };
 
   const handleSort = (field) => {
@@ -160,7 +145,6 @@ export default function PlaylistDetailPage() {
           </div>
         </div>
 
-        {/* Queue progress indicator */}
         {queueProgress && (
           <div className="queue-progress">
             <div className="queue-progress-bar">
@@ -196,20 +180,6 @@ export default function PlaylistDetailPage() {
           </div>
         </div>
 
-        <div className="settings-row">
-          <label className="debug-label">
-            <input
-              type="checkbox"
-              checked={debugMode}
-              onChange={handleDebugToggle}
-            />
-            Debug Mode
-          </label>
-          <button className="clear-btn" onClick={handleClearStats}>
-            Clear Statistics
-          </button>
-        </div>
-
         <div className="tracks-header">
           <span className="col-name sortable" onClick={() => handleSort('name')}>
             Song {sortField === 'name' ? (sortAsc ? '↑' : '↓') : ''}
@@ -227,7 +197,7 @@ export default function PlaylistDetailPage() {
             key={track.id}
             track={track}
             average={stats?.average ?? 0}
-            tolerance={getGlobalTolerance()}
+            tolerance={userStats.tolerance}
           />
         ))}
       </div>

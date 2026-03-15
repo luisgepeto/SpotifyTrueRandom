@@ -1,35 +1,29 @@
 import { getCurrentPlayback, getDevices } from './spotify.js';
 import { generateBatch, queueBatch, enqueueBatch } from './queueManager.js';
-import { saveLastQueuedPlaylist } from './storage.js';
 
 /**
- * Start TrueRandom: replaces current playback context with a new batch.
+ * Start TrueRandom: plays first song + queues the rest.
  */
-export async function startTrueRandom(playlistId, tracks, onProgress) {
+export async function startTrueRandom(tracks, stats, tolerance, onProgress) {
   const deviceId = await getActiveDeviceId();
 
-  const batch = await generateBatch(tracks);
+  const batch = await generateBatch(tracks, stats, tolerance);
   if (batch.length === 0) throw new Error('No tracks available to queue.');
 
   await queueBatch(batch, deviceId, onProgress);
-  saveLastQueuedPlaylist(playlistId);
-
   return { batch };
 }
 
 /**
  * Enqueue TrueRandom: appends songs to the existing Spotify queue.
- * Does NOT interrupt current playback.
  */
-export async function addToTrueRandomQueue(playlistId, tracks, onProgress) {
+export async function addToTrueRandomQueue(tracks, stats, tolerance, onProgress) {
   const deviceId = await getActiveDeviceId();
 
-  const batch = await generateBatch(tracks);
+  const batch = await generateBatch(tracks, stats, tolerance);
   if (batch.length === 0) throw new Error('No tracks available to queue.');
 
   await enqueueBatch(batch, deviceId, onProgress);
-  saveLastQueuedPlaylist(playlistId);
-
   return { batch };
 }
 
