@@ -222,6 +222,8 @@ async function cacheAllPlaylists() {
   // Cache tracks for each unique playlist (global)
   console.log(`\n  🎵 Caching tracks for ${allPlaylistIds.size} unique playlists...`);
 
+  const realTrackCounts = {};
+
   for (const playlistId of allPlaylistIds) {
     try {
       const [meta, tracks] = await Promise.all([
@@ -235,11 +237,28 @@ async function cacheAllPlaylists() {
         cachedAt: new Date().toISOString(),
       });
 
+      realTrackCounts[playlistId] = tracks.length;
       console.log(`    ✅ ${meta.name}: ${tracks.length} tracks`);
     } catch (err) {
       console.error(`    ❌ playlist ${playlistId}: ${err.message}`);
-      // Keep existing cache file if present — don't delete on failure
     }
+  }
+
+  // Update per-user playlist caches with real track counts
+  for (const filePath of userFiles) {
+    const userData = readJson(filePath);
+    const cacheFile = path.join(CACHE_DIR, `user_${userData.userId}_playlists.json`);
+    if (!fs.existsSync(cacheFile)) continue;
+
+    const cached = readJson(cacheFile);
+    let updated = false;
+    for (const p of cached.playlists) {
+      if (realTrackCounts[p.id] !== undefined && p.trackCount !== realTrackCounts[p.id]) {
+        p.trackCount = realTrackCounts[p.id];
+        updated = true;
+      }
+    }
+    if (updated) writeJson(cacheFile, cached);
   }
 
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
