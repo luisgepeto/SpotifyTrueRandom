@@ -147,7 +147,10 @@ export default function PlaylistDetailPage({ userStats, onRefreshStats }) {
               <h2 className="playlist-name">{playlist?.name ?? 'Playlist'}</h2>
               <p className="playlist-track-count">{tracks.length} songs</p>
               {cachedAt && (
-                <p className="playlist-cache-time">Cache: {new Date(cachedAt).toLocaleString()}</p>
+                <p className="playlist-cache-time">Songs cached: {new Date(cachedAt).toLocaleString()}</p>
+              )}
+              {userStats?.lastReconciledAt && (
+                <p className="playlist-cache-time">Play counts updated: {new Date(userStats.lastReconciledAt).toLocaleString()}</p>
               )}
             </div>
           </div>
