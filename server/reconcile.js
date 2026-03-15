@@ -58,6 +58,7 @@ async function refreshAccessToken(userData) {
   const data = await response.json();
   userData.tokens.accessToken = data.access_token;
   userData.tokens.expiresAt = Date.now() + data.expires_in * 1000;
+  userData.lastTokenRefreshAt = new Date().toISOString();
   if (data.refresh_token) {
     userData.tokens.refreshToken = data.refresh_token;
   }
@@ -153,6 +154,7 @@ async function reconcileUser(filePath) {
   if (items.length === 0) {
     console.log('    No new plays found.');
     userData.lastReconciled = Date.now();
+    userData.lastReconciledAt = new Date().toISOString();
     saveUserData(filePath, userData);
     return;
   }
@@ -192,6 +194,7 @@ async function reconcileUser(filePath) {
     return t > latest ? t : latest;
   }, since);
   userData.lastReconciled = mostRecent;
+  userData.lastReconciledAt = new Date(mostRecent).toISOString();
 
   saveUserData(filePath, userData);
 

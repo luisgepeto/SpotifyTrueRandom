@@ -129,6 +129,8 @@ const server = https.createServer(sslOptions, async (req, res) => {
         refreshToken: tokenData.refresh_token,
         expiresAt: Date.now() + tokenData.expires_in * 1000,
       };
+      userData.initialAuthAt = userData.initialAuthAt || new Date().toISOString();
+      userData.lastTokenRefreshAt = new Date().toISOString();
 
       fs.writeFileSync(userFile, JSON.stringify(userData, null, 2));
 
