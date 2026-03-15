@@ -12,7 +12,7 @@ const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
 const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 const MIN_LOOKBACK_MS = 3 * 60 * 60 * 1000; // minimum 3 hours
 const LOOKBACK_BUFFER_MS = 2 * 60 * 60 * 1000; // 2 hour buffer past lastReconciled
-const INITIAL_LOOKBACK_MS = 24 * 60 * 60 * 1000; // 24 hours for first-time reconciliation
+const INITIAL_LOOKBACK_MS = 48 * 60 * 60 * 1000; // 48 hours for first-time reconciliation
 const MAX_PAGES = 20;
 
 if (!CLIENT_ID || !CLIENT_SECRET) {
