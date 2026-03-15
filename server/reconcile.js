@@ -10,7 +10,7 @@ const DATA_DIR = path.join(__dirname, 'data');
 
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
 const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
-const DEFAULT_LOOKBACK_MS = 24 * 60 * 60 * 1000; // 24 hours
+const LOOKBACK_MS = 3 * 60 * 60 * 1000; // 3 hours
 const MAX_PAGES = 20;
 
 if (!CLIENT_ID || !CLIENT_SECRET) {
@@ -130,7 +130,7 @@ async function reconcileUser(filePath) {
     return;
   }
 
-  const since = userData.lastReconciled || (Date.now() - DEFAULT_LOOKBACK_MS);
+  const since = Date.now() - LOOKBACK_MS;
   console.log(`    Looking back to: ${new Date(since).toISOString()}`);
 
   let items;
@@ -138,13 +138,12 @@ async function reconcileUser(filePath) {
     items = await fetchAllRecentlyPlayed(userData.tokens.accessToken, since);
   } catch (err) {
     if (err.message === 'TOKEN_EXPIRED') {
-      // Retry once after refresh
       try {
         await refreshAccessToken(userData);
         items = await fetchAllRecentlyPlayed(userData.tokens.accessToken, since);
       } catch (retryErr) {
         console.error(`    ❌ Failed after token retry: ${retryErr.message}`);
-        saveUserData(filePath, userData); // Save refreshed tokens
+        saveUserData(filePath, userData);
         return;
       }
     } else {
@@ -153,7 +152,25 @@ async function reconcileUser(filePath) {
     }
   }
 
-  if (items.length === 0) {
+  // Deduplicate against previously reconciled plays using trackId:played_at
+  const previouslySeen = new Set(userData.reconciledPlays || []);
+  const newItems = items.filter((item) => {
+    const key = `${item.track?.id}:${item.played_at}`;
+    return !previouslySeen.has(key);
+  });
+
+  console.log(`    API returned ${items.length} items, ${newItems.length} are new`);
+
+  // Update reconciledPlays: keep keys from this window + new ones
+  const cutoff = new Date(since).toISOString();
+  const updatedSeen = [...previouslySeen]
+    .filter((key) => key.split(':').slice(1).join(':') >= cutoff);
+  for (const item of newItems) {
+    updatedSeen.push(`${item.track?.id}:${item.played_at}`);
+  }
+  userData.reconciledPlays = updatedSeen;
+
+  if (newItems.length === 0) {
     console.log('    No new plays found.');
     userData.lastReconciled = Date.now();
     userData.lastReconciledAt = new Date().toISOString();
@@ -161,9 +178,9 @@ async function reconcileUser(filePath) {
     return;
   }
 
-  // Count plays per track
+  // Count plays per track (only new items)
   const playCounts = {};
-  for (const item of items) {
+  for (const item of newItems) {
     const trackId = item.track?.id;
     if (!trackId) continue;
     if (!playCounts[trackId]) {
@@ -197,13 +214,9 @@ async function reconcileUser(filePath) {
     totalReconciled += info.count;
   }
 
-  // Update lastReconciled to most recent played_at
-  const mostRecent = items.reduce((latest, item) => {
-    const t = new Date(item.played_at).getTime();
-    return t > latest ? t : latest;
-  }, since);
-  userData.lastReconciled = mostRecent;
-  userData.lastReconciledAt = new Date(mostRecent).toISOString();
+  // Update lastReconciled to now
+  userData.lastReconciled = Date.now();
+  userData.lastReconciledAt = new Date().toISOString();
 
   saveUserData(filePath, userData);
 
