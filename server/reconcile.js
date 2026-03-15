@@ -12,6 +12,7 @@ const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
 const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
 const MIN_LOOKBACK_MS = 3 * 60 * 60 * 1000; // minimum 3 hours
 const LOOKBACK_BUFFER_MS = 2 * 60 * 60 * 1000; // 2 hour buffer past lastReconciled
+const INITIAL_LOOKBACK_MS = 24 * 60 * 60 * 1000; // 24 hours for first-time reconciliation
 const MAX_PAGES = 20;
 
 if (!CLIENT_ID || !CLIENT_SECRET) {
@@ -132,11 +133,11 @@ async function reconcileUser(filePath) {
   }
 
   // Look back at least 3h, or to lastReconciled - 2h buffer, whichever is further
+  // For first-time users (no lastReconciled), look back 24h
   const minLookback = Date.now() - MIN_LOOKBACK_MS;
-  const lastReconciledLookback = userData.lastReconciled
-    ? userData.lastReconciled - LOOKBACK_BUFFER_MS
-    : 0;
-  const since = Math.min(minLookback, lastReconciledLookback || minLookback);
+  const since = userData.lastReconciled
+    ? Math.min(minLookback, userData.lastReconciled - LOOKBACK_BUFFER_MS)
+    : Date.now() - INITIAL_LOOKBACK_MS;
   const windowHours = ((Date.now() - since) / 3600000).toFixed(1);
   console.log(`    Window: ${new Date(since).toISOString()} → ${new Date().toISOString()} (${windowHours}h)`);
 
