@@ -131,7 +131,7 @@ async function reconcileUser(filePath) {
   }
 
   const since = Date.now() - LOOKBACK_MS;
-  console.log(`    Looking back to: ${new Date(since).toISOString()}`);
+  console.log(`    Window: ${new Date(since).toISOString()} → ${new Date().toISOString()} (${LOOKBACK_MS / 3600000}h)`);
 
   let items;
   try {
