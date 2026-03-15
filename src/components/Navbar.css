@@ -38,3 +38,16 @@
   color: #fff;
   border-color: #fff;
 }
+
+.nav-link {
+  background: none;
+  border: none;
+  color: #b3b3b3;
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 4px 8px;
+}
+
+.nav-link:hover {
+  color: #1DB954;
+}

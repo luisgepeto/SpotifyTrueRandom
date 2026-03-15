@@ -1,0 +1,119 @@
+.stats-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.stats-info {
+  background: #181818;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #282828;
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  color: #b3b3b3;
+  font-size: 0.9rem;
+}
+
+.info-value {
+  color: #fff;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.stats-summary-grid {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.stat-box {
+  background: #181818;
+  border-radius: 8px;
+  padding: 1rem 1.5rem;
+  text-align: center;
+  flex: 1;
+  min-width: 100px;
+}
+
+.stat-number {
+  display: block;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #1DB954;
+}
+
+.stat-desc {
+  display: block;
+  font-size: 0.75rem;
+  color: #b3b3b3;
+  margin-top: 0.25rem;
+  text-transform: uppercase;
+}
+
+.stats-table {
+  background: #181818;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.stats-table-header {
+  display: grid;
+  grid-template-columns: 2fr 2fr 80px;
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: #b3b3b3;
+  border-bottom: 1px solid #282828;
+}
+
+.stats-table-row {
+  display: grid;
+  grid-template-columns: 2fr 2fr 80px;
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
+  border-bottom: 1px solid #282828;
+}
+
+.stats-table-row:hover {
+  background: #282828;
+}
+
+.stats-table-row .col-song {
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stats-table-row .col-artist {
+  color: #b3b3b3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stats-table-row .col-plays {
+  text-align: right;
+  color: #1DB954;
+  font-weight: 600;
+}
+
+.stats-empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: #b3b3b3;
+}

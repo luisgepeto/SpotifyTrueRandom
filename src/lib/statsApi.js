@@ -9,7 +9,6 @@ export async function fetchUserStats(userId) {
   const response = await fetch(url);
 
   if (response.status === 404) {
-    // User has no stats yet — return empty
     return { tracks: {}, tolerance: 10 };
   }
 
@@ -21,5 +20,9 @@ export async function fetchUserStats(userId) {
   return {
     tracks: data.tracks || {},
     tolerance: data.tolerance ?? 10,
+    displayName: data.displayName,
+    lastReconciledAt: data.lastReconciledAt,
+    lastTokenRefreshAt: data.lastTokenRefreshAt,
+    initialAuthAt: data.initialAuthAt,
   };
 }

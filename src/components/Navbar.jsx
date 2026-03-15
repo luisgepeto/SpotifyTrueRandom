@@ -17,6 +17,7 @@ export default function Navbar({ user }) {
       </div>
       {user && (
         <div className="nav-user">
+          <button className="nav-link" onClick={() => navigate('/stats')}>📊 Stats</button>
           <span className="nav-username">{user.display_name}</span>
           <button className="nav-logout" onClick={handleLogout}>Logout</button>
         </div>

@@ -7,6 +7,7 @@ import Navbar from './components/Navbar.jsx';
 import LoginPage from './pages/LoginPage.jsx';
 import PlaylistsPage from './pages/PlaylistsPage.jsx';
 import PlaylistDetailPage from './pages/PlaylistDetailPage.jsx';
+import StatsPage from './pages/StatsPage.jsx';
 import NotFoundPage from './pages/NotFoundPage.jsx';
 
 // Handle OAuth callback before React renders.
@@ -90,6 +91,9 @@ export default function App() {
                 userId={user?.id}
                 onRefreshStats={() => user && refreshStats(user.id)}
               />
+            } />
+            <Route path="/stats" element={
+              <StatsPage userStats={userStats} userId={user?.id} />
             } />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
