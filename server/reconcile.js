@@ -171,9 +171,13 @@ async function reconcileUser(filePath) {
         count: 0,
         name: item.track.name,
         artist: item.track.artists?.map((a) => a.name).join(', ') || 'Unknown',
+        lastPlayedAt: item.played_at,
       };
     }
     playCounts[trackId].count += 1;
+    if (item.played_at > playCounts[trackId].lastPlayedAt) {
+      playCounts[trackId].lastPlayedAt = item.played_at;
+    }
   }
 
   // Update user's track stats
@@ -187,6 +191,9 @@ async function reconcileUser(filePath) {
     userData.tracks[trackId].playCount += info.count;
     userData.tracks[trackId].name = info.name;
     userData.tracks[trackId].artist = info.artist;
+    if (!userData.tracks[trackId].lastPlayedAt || info.lastPlayedAt > userData.tracks[trackId].lastPlayedAt) {
+      userData.tracks[trackId].lastPlayedAt = info.lastPlayedAt;
+    }
     totalReconciled += info.count;
   }
 

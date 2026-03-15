@@ -7,6 +7,7 @@ export default function StatsPage({ userStats, userId }) {
   const navigate = useNavigate();
   const [reconcileLog, setReconcileLog] = useState(null);
   const [logLoading, setLogLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -91,17 +92,33 @@ export default function StatsPage({ userStats, userId }) {
       </div>
 
       <h3>All Tracked Songs ({uniqueTracks})</h3>
+      <input
+        className="stats-search"
+        type="search"
+        placeholder="Search songs..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        aria-label="Search tracked songs"
+      />
       <div className="stats-table">
         <div className="stats-table-header">
           <span className="col-song">Song</span>
           <span className="col-artist">Artist</span>
+          <span className="col-last-played">Last Played</span>
           <span className="col-plays">Plays</span>
         </div>
         <div className="stats-table-body">
-          {trackList.map((track) => (
+          {trackList
+            .filter((t) => {
+              if (!searchQuery.trim()) return true;
+              const q = searchQuery.trim().toLowerCase();
+              return t.name?.toLowerCase().includes(q) || (t.artist || '').toLowerCase().includes(q);
+            })
+            .map((track) => (
             <div key={track.id} className="stats-table-row">
               <span className="col-song">{track.name || track.id}</span>
               <span className="col-artist">{track.artist || '—'}</span>
+              <span className="col-last-played">{track.lastPlayedAt ? new Date(track.lastPlayedAt).toLocaleDateString() : '—'}</span>
               <span className="col-plays">{track.playCount}</span>
             </div>
           ))}

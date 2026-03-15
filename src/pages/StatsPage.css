@@ -72,7 +72,7 @@
 
 .stats-table-header {
   display: grid;
-  grid-template-columns: 2fr 2fr 80px;
+  grid-template-columns: 2fr 2fr 100px 60px;
   padding: 0.75rem 1rem;
   font-size: 0.75rem;
   text-transform: uppercase;
@@ -82,7 +82,7 @@
 
 .stats-table-row {
   display: grid;
-  grid-template-columns: 2fr 2fr 80px;
+  grid-template-columns: 2fr 2fr 100px 60px;
   padding: 0.6rem 1rem;
   font-size: 0.85rem;
   border-bottom: 1px solid #282828;
@@ -116,6 +116,33 @@
   padding: 2rem 1rem;
   text-align: center;
   color: #b3b3b3;
+}
+
+.stats-search {
+  display: block;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.5rem;
+  background: var(--bg-secondary, #282828);
+  border: 1px solid #404040;
+  border-radius: 4px;
+  color: var(--text-primary, #fff);
+  font-size: 0.9rem;
+  box-sizing: border-box;
+}
+
+.stats-search::placeholder {
+  color: #b3b3b3;
+}
+
+.stats-search:focus {
+  outline: none;
+  border-color: var(--accent, #1db954);
+}
+
+.col-last-played {
+  color: #888;
+  font-size: 0.8rem;
 }
 
 .reconcile-log {
