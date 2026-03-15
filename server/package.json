@@ -1,0 +1,15 @@
+{
+  "name": "truerandom-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "auth": "node auth.js",
+    "reconcile": "node reconcile.js",
+    "start": "node cron.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.0",
+    "node-cron": "^3.0.3"
+  }
+}
