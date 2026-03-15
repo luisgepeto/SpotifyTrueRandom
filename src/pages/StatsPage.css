@@ -163,3 +163,19 @@
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+@media (max-width: 600px) {
+  .stats-table-header,
+  .stats-table-row {
+    grid-template-columns: 3fr 120px 40px;
+  }
+
+  .stats-table-header .col-artist,
+  .stats-table-row .col-artist {
+    display: none;
+  }
+
+  .col-last-played {
+    font-size: 0.7rem;
+  }
+}
