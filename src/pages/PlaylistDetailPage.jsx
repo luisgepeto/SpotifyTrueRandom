@@ -2,14 +2,14 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { isAuthenticated, logout } from '../lib/auth.js';
 import { getPlaylist, getAllPlaylistTracks } from '../lib/spotify.js';
-import { fetchCachedPlaylist } from '../lib/statsApi.js';
+import { fetchCachedPlaylist, fetchUserStats } from '../lib/statsApi.js';
 import { getTrackStats } from '../lib/trueRandom.js';
 import { startTrueRandom, addToTrueRandomQueue, checkIsPlaying } from '../lib/playback.js';
 import { BATCH_SIZE } from '../lib/queueManager.js';
 import TrackRow from '../components/TrackRow.jsx';
 import './PlaylistDetailPage.css';
 
-export default function PlaylistDetailPage({ userStats, onRefreshStats }) {
+export default function PlaylistDetailPage({ userStats, userId, onRefreshStats }) {
   const { id: playlistId } = useParams();
   const navigate = useNavigate();
   const [playlist, setPlaylist] = useState(null);
@@ -75,18 +75,29 @@ export default function PlaylistDetailPage({ userStats, onRefreshStats }) {
       setError(null);
       setQueueProgress({ queued: 0, total: BATCH_SIZE });
 
+      // Fetch latest stats from server before generating batch
+      let freshStats = userStats;
+      if (userId) {
+        try {
+          freshStats = await fetchUserStats(userId);
+          if (onRefreshStats) onRefreshStats();
+        } catch {
+          // Fall back to existing stats if fetch fails
+        }
+      }
+
       if (isPlaying) {
         await addToTrueRandomQueue(
           tracks,
-          userStats,
-          userStats.tolerance,
+          freshStats,
+          freshStats.tolerance,
           (queued, total) => setQueueProgress({ queued, total }),
         );
       } else {
         await startTrueRandom(
           tracks,
-          userStats,
-          userStats.tolerance,
+          freshStats,
+          freshStats.tolerance,
           (queued, total) => setQueueProgress({ queued, total }),
         );
       }
@@ -94,8 +105,8 @@ export default function PlaylistDetailPage({ userStats, onRefreshStats }) {
       setQueueProgress(null);
       setIsPlaying(true);
 
-      // Reload stats display
-      const trackStats = getTrackStats(tracks, userStats);
+      // Reload stats display with fresh data
+      const trackStats = getTrackStats(tracks, freshStats);
       setStats(trackStats);
     } catch (err) {
       if (!isAuthenticated()) {
