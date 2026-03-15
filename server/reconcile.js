@@ -1,9 +1,11 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+dotenv.config({ path: path.join(__dirname, '.env') });
+
 const DATA_DIR = path.join(__dirname, 'data');
 
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
@@ -206,14 +208,19 @@ async function reconcileUser(filePath) {
 // --- Main ---
 
 export async function reconcileAllUsers() {
+  const startTime = Date.now();
+  console.log(`\n========================================`);
+  console.log(`🎵 Reconciliation START — ${new Date(startTime).toISOString()}`);
+  console.log(`========================================`);
+
   const files = getUserFiles();
 
   if (files.length === 0) {
     console.log('No users found. Run "npm run auth" to add a user.');
+    console.log(`🏁 Reconciliation END — ${new Date().toISOString()} (${((Date.now() - startTime) / 1000).toFixed(1)}s)\n`);
     return;
   }
 
-  console.log(`\n🎵 TrueRandom Reconciliation — ${new Date().toISOString()}`);
   console.log(`   Found ${files.length} user(s)`);
 
   for (const filePath of files) {
@@ -224,7 +231,10 @@ export async function reconcileAllUsers() {
     }
   }
 
-  console.log('\n✅ Reconciliation complete.\n');
+  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+  console.log(`\n========================================`);
+  console.log(`🏁 Reconciliation END — ${new Date().toISOString()} (${elapsed}s)`);
+  console.log(`========================================\n`);
 }
 
 // Run directly if executed as a script
