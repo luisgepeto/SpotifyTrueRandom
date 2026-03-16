@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { isAuthenticated, logout } from '../lib/auth.js';
 import { getPlaylist, getAllPlaylistTracks } from '../lib/spotify.js';
-import { fetchCachedPlaylist, fetchUserStats } from '../lib/statsApi.js';
+import { fetchCachedPlaylist, fetchUserStats, getPlaylistStats } from '../lib/statsApi.js';
 import { getTrackStats } from '../lib/trueRandom.js';
 import { startTrueRandom, addToTrueRandomQueue, checkIsPlaying } from '../lib/playback.js';
 import { BATCH_SIZE } from '../lib/queueManager.js';
@@ -44,7 +44,8 @@ export default function PlaylistDetailPage({ userStats, userId, onRefreshStats }
 
       setPlaylist(playlistData);
       setTracks(allTracks);
-      const trackStats = getTrackStats(allTracks, userStats);
+      const playlistStats = getPlaylistStats(userStats, playlistId);
+      const trackStats = getTrackStats(allTracks, playlistStats);
       setStats(trackStats);
     } catch (err) {
       if (!isAuthenticated()) {
@@ -81,7 +82,8 @@ export default function PlaylistDetailPage({ userStats, userId, onRefreshStats }
         const freshStats = await fetchUserStats(userId);
         if (onRefreshStats) onRefreshStats();
         if (tracksRef.current.length > 0) {
-          const trackStats = getTrackStats(tracksRef.current, freshStats);
+          const playlistStats = getPlaylistStats(freshStats, playlistId);
+          const trackStats = getTrackStats(tracksRef.current, playlistStats);
           setStats(trackStats);
         }
       } catch { /* silent */ }
@@ -106,17 +108,20 @@ export default function PlaylistDetailPage({ userStats, userId, onRefreshStats }
         }
       }
 
+      // Get per-playlist stats for batch generation
+      const playlistStats = getPlaylistStats(freshStats, playlistId);
+
       if (isPlaying) {
         await addToTrueRandomQueue(
           tracks,
-          freshStats,
+          playlistStats,
           freshStats.tolerance,
           (queued, total) => setQueueProgress({ queued, total }),
         );
       } else {
         await startTrueRandom(
           tracks,
-          freshStats,
+          playlistStats,
           freshStats.tolerance,
           (queued, total) => setQueueProgress({ queued, total }),
         );
@@ -125,8 +130,8 @@ export default function PlaylistDetailPage({ userStats, userId, onRefreshStats }
       setQueueProgress(null);
       setIsPlaying(true);
 
-      // Reload stats display with fresh data
-      const trackStats = getTrackStats(tracks, freshStats);
+      // Reload stats display with per-playlist data
+      const trackStats = getTrackStats(tracks, playlistStats);
       setStats(trackStats);
     } catch (err) {
       if (!isAuthenticated()) {

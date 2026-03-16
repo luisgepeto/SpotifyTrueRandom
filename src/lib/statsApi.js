@@ -19,6 +19,7 @@ export async function fetchUserStats(userId) {
   const data = await response.json();
   return {
     tracks: data.tracks || {},
+    playlists: data.playlists || {},
     tolerance: data.tolerance ?? 10,
     displayName: data.displayName,
     lastReconciledAt: data.lastReconciledAt,
@@ -47,4 +48,25 @@ export async function fetchCachedPlaylist(playlistId) {
   const response = await fetch(url);
   if (!response.ok) return null;
   return response.json();
+}
+
+/**
+ * Extract per-playlist stats from user stats, returning a stats-like object
+ * with per-playlist play counts merged with global track metadata.
+ * Downstream code (getTrackStats, generateBatch) works unchanged.
+ */
+export function getPlaylistStats(userStats, playlistId) {
+  const plTracks = userStats?.playlists?.[playlistId]?.tracks || {};
+  const mergedTracks = {};
+  for (const [tid, plData] of Object.entries(plTracks)) {
+    const globalData = userStats.tracks?.[tid] || {};
+    mergedTracks[tid] = {
+      ...globalData,
+      playCount: plData.playCount,
+    };
+  }
+  return {
+    ...userStats,
+    tracks: mergedTracks,
+  };
 }

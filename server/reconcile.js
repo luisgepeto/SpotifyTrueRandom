@@ -7,6 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '.env') });
 
 const DATA_DIR = path.join(__dirname, 'data');
+const CACHE_DIR = path.join(DATA_DIR, 'cache');
 
 const CLIENT_ID = process.env.SPOTIFY_CLIENT_ID;
 const CLIENT_SECRET = process.env.SPOTIFY_CLIENT_SECRET;
@@ -37,6 +38,127 @@ function saveUserData(filePath, data) {
   const tmp = filePath + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
   fs.renameSync(tmp, filePath);
+}
+
+// --- Playlist cache helpers (for per-playlist tracking) ---
+
+function loadUserPlaylistCache(userId) {
+  const cacheFile = path.join(CACHE_DIR, `user_${userId}_playlists.json`);
+  if (!fs.existsSync(cacheFile)) return null;
+  return JSON.parse(fs.readFileSync(cacheFile, 'utf-8'));
+}
+
+function loadPlaylistCache(playlistId) {
+  const cacheFile = path.join(CACHE_DIR, `playlist_${playlistId}.json`);
+  if (!fs.existsSync(cacheFile)) return null;
+  return JSON.parse(fs.readFileSync(cacheFile, 'utf-8'));
+}
+
+/**
+ * Build maps of trackId → Set<playlistId> and playlistId → [trackIds]
+ * from the cached playlist data for a user.
+ */
+function buildPlaylistTrackMap(userId) {
+  const userPlaylists = loadUserPlaylistCache(userId);
+  if (!userPlaylists?.playlists) return { trackToPlaylists: {}, playlistTracks: {} };
+
+  const trackToPlaylists = {};
+  const playlistTracks = {};
+
+  for (const playlist of userPlaylists.playlists) {
+    const playlistData = loadPlaylistCache(playlist.id);
+    if (!playlistData?.tracks) continue;
+
+    const trackIds = playlistData.tracks.map((t) => t.id).filter(Boolean);
+    playlistTracks[playlist.id] = trackIds;
+
+    for (const trackId of trackIds) {
+      if (!trackToPlaylists[trackId]) trackToPlaylists[trackId] = new Set();
+      trackToPlaylists[trackId].add(playlist.id);
+    }
+  }
+
+  return { trackToPlaylists, playlistTracks };
+}
+
+/**
+ * One-time migration: initialize per-playlist counts from global counts.
+ * All songs in a playlist start at the same value (average of their global counts).
+ */
+function migrateToPerPlaylistCounts(userData, playlistTracks) {
+  if (userData.playlists) return false;
+
+  userData.playlists = {};
+
+  for (const [playlistId, trackIds] of Object.entries(playlistTracks)) {
+    const globalCounts = trackIds
+      .filter((tid) => userData.tracks?.[tid]?.playCount !== undefined)
+      .map((tid) => userData.tracks[tid].playCount);
+    const average = globalCounts.length > 0
+      ? Math.round(globalCounts.reduce((a, b) => a + b, 0) / globalCounts.length)
+      : 0;
+
+    userData.playlists[playlistId] = { tracks: {} };
+    for (const trackId of trackIds) {
+      userData.playlists[playlistId].tracks[trackId] = { playCount: average };
+    }
+  }
+
+  return true;
+}
+
+/**
+ * Detect new songs in playlists and initialize them to the playlist's average count.
+ */
+function initializeNewPlaylistTracks(userData, playlistTracks) {
+  if (!userData.playlists) userData.playlists = {};
+
+  let newTrackCount = 0;
+
+  for (const [playlistId, trackIds] of Object.entries(playlistTracks)) {
+    if (!userData.playlists[playlistId]) {
+      userData.playlists[playlistId] = { tracks: {} };
+    }
+    const plTracks = userData.playlists[playlistId].tracks;
+
+    const existingCounts = Object.values(plTracks)
+      .map((t) => t.playCount)
+      .filter((c) => c !== undefined);
+    const average = existingCounts.length > 0
+      ? Math.round(existingCounts.reduce((a, b) => a + b, 0) / existingCounts.length)
+      : 0;
+
+    for (const trackId of trackIds) {
+      if (!plTracks[trackId]) {
+        plTracks[trackId] = { playCount: average };
+        newTrackCount++;
+      }
+    }
+  }
+
+  return newTrackCount;
+}
+
+/**
+ * Increment per-playlist counts for each detected play.
+ */
+function incrementPerPlaylistCounts(userData, playCounts, trackToPlaylists) {
+  if (!userData.playlists) return;
+
+  for (const [trackId, info] of Object.entries(playCounts)) {
+    const playlists = trackToPlaylists[trackId];
+    if (!playlists) continue;
+
+    for (const playlistId of playlists) {
+      if (!userData.playlists[playlistId]) {
+        userData.playlists[playlistId] = { tracks: {} };
+      }
+      if (!userData.playlists[playlistId].tracks[trackId]) {
+        userData.playlists[playlistId].tracks[trackId] = { playCount: 0 };
+      }
+      userData.playlists[playlistId].tracks[trackId].playCount += info.count;
+    }
+  }
 }
 
 // --- Token management ---
@@ -178,6 +300,19 @@ async function reconcileUser(filePath) {
   }
   userData.reconciledPlays = updatedSeen;
 
+  // --- Per-playlist tracking ---
+  const { trackToPlaylists, playlistTracks } = buildPlaylistTrackMap(userId);
+
+  const migrated = migrateToPerPlaylistCounts(userData, playlistTracks);
+  if (migrated) {
+    console.log(`    📦 Migrated to per-playlist tracking`);
+  }
+
+  const newTracksAdded = initializeNewPlaylistTracks(userData, playlistTracks);
+  if (newTracksAdded > 0) {
+    console.log(`    🆕 Initialized ${newTracksAdded} new tracks across playlists`);
+  }
+
   if (newItems.length === 0) {
     console.log('    No new plays found.');
     userData.lastReconciled = Date.now();
@@ -221,6 +356,9 @@ async function reconcileUser(filePath) {
     }
     totalReconciled += info.count;
   }
+
+  // Increment per-playlist counts for each play
+  incrementPerPlaylistCounts(userData, playCounts, trackToPlaylists);
 
   // Update lastReconciled to now
   userData.lastReconciled = Date.now();
